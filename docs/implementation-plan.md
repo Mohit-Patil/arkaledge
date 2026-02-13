@@ -1,6 +1,6 @@
 # Implementation Plan
 
-## Phase 1: Core Agent Abstraction (Current)
+## Phase 1: Core Agent Abstraction (Complete)
 
 **Goal**: Run a single agent (either SDK) with a prompt, get streaming output.
 
@@ -19,17 +19,19 @@
 
 ---
 
-## Phase 2: Multi-Agent Orchestration + Kanban
+## Phase 2: Multi-Agent Orchestration + Kanban (Complete)
 
 **Goal**: PM creates tasks, Scrum Master assigns them, Engineers execute.
 
-- [ ] Implement `KanbanManager` (read/write/lock `kanban.json`)
-- [ ] Implement PM role: spec to tasks with acceptance criteria
-- [ ] Implement Scrum Master role: assignment loop, monitoring
-- [ ] Implement Engineer role: task execution, test writing, self-correction loop
-- [ ] Implement `Orchestrator` -- boots all agents, manages lifecycle
-- [ ] Implement `FailureHandler` -- retry, reassign, kill pipeline
-- [ ] Wire up the full execution flow
+- [x] Implement `KanbanManager` (read/write/lock `kanban.json`)
+- [x] Implement PM role: spec to tasks with acceptance criteria
+- [x] Implement Scrum Master role: assignment loop, monitoring
+- [x] Implement Engineer role: task execution, test writing, self-correction loop
+- [x] Implement Reviewer role: JSON verdict, approval/rejection flow
+- [x] Implement `Orchestrator` -- boots all agents, manages lifecycle
+- [x] Implement `FailureHandler` -- retry with exponential backoff, reassign, block pipeline
+- [x] Wire up the full execution flow
+- [x] CLI `--spec` and `--output` flags for team orchestration mode
 
 **Verification**: Provide a simple spec ("build a CLI calculator"), watch PM create tasks, engineers build it, review completes.
 

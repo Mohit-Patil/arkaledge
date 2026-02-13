@@ -1,10 +1,12 @@
-# Next: Phase 2 — Multi-Agent Orchestration + Kanban
+# Next: Phase 3 — Git Worktrees + PR Review Flow
 
 ## Status
 
-Phase 1 (Core Agent Abstraction) is complete. All code compiles, the monorepo builds cleanly.
+Phase 1 (Core Agent Abstraction) and Phase 2 (Multi-Agent Orchestration + Kanban) are complete. All code compiles, the monorepo builds cleanly.
 
 ## What Exists
+
+### Phase 1
 
 - Unified `AgentRuntime` interface with Claude and Codex adapters
 - `AgentFactory` to create runtimes from YAML config
@@ -12,153 +14,67 @@ Phase 1 (Core Agent Abstraction) is complete. All code compiles, the monorepo bu
 - `EventBus` for real-time event streaming
 - Plugin type definitions and loader
 - CLI entry point (`arkaledge run`)
-- Full docs in `docs/`
 
-## What Phase 2 Needs
+### Phase 2
 
-### 1. KanbanManager (`packages/core/src/kanban.ts`)
+- `KanbanManager` — file-based task state with `proper-lockfile` locking
+- `ProductManagerRole` — breaks product specs into structured tasks via LLM
+- `EngineerRole` — task execution with self-correction loop (up to 3 retries)
+- `ReviewerRole` — code review with JSON verdict (approved/rejected)
+- `ScrumMasterRole` — coordination loop: assigns tasks, triggers reviews, tracks idle/busy engineers
+- `FailureHandler` — retry with exponential backoff → reassign to different SDK/model → block
+- `Orchestrator` — wires PM breakdown → Scrum Master loop → completion
+- CLI `--spec` and `--output` flags for team orchestration mode
 
-Read/write/lock `kanban.json` using `proper-lockfile` (already installed).
+## What Phase 3 Needs
+
+### 1. WorktreeManager (`packages/core/src/worktree-manager.ts`)
+
+Manages git worktrees for parallel engineer isolation.
 
 ```typescript
-class KanbanManager {
-  constructor(projectDir: string);
-  async load(): Promise<KanbanState>;
-  async save(state: KanbanState): Promise<void>;
-  async addTask(task: Omit<Task, "id" | "history" | "retryCount">): Promise<Task>;
-  async updateTask(taskId: string, updates: Partial<Task>): Promise<Task>;
-  async getTasksByStatus(status: TaskStatus): Promise<Task[]>;
-  async assignTask(taskId: string, agentId: string): Promise<Task>;
+class WorktreeManager {
+  constructor(projectDir: string)
+  async createWorktree(taskId: string, branchName: string): Promise<string> // returns worktree path
+  async removeWorktree(taskId: string): Promise<void>
+  async mergeToMain(branchName: string): Promise<void>
+  async getDiff(branchName: string): Promise<string>
 }
 ```
 
-- State file lives at `<projectDir>/.arkaledge/kanban.json`
-- Use `proper-lockfile` for concurrent access safety
-- Emit events via `EventBus` on every state change
+### 2. Update Engineer Role
 
-### 2. Product Manager Role (`packages/core/src/roles/product-manager.ts`)
+- Work in assigned worktree instead of shared project directory
+- Commit changes to task branch on completion
+- Pass worktree path to `runtime.run()` as working directory
 
-- Takes a raw product spec (string) as input
-- Uses an AgentRuntime to break the spec into epics and tasks
-- Writes tasks to KanbanManager with status `backlog`
-- Each task needs: title, description, acceptanceCriteria[], priority
-- System prompt should instruct the agent to output structured JSON
+### 3. Update Reviewer Role
 
-### 3. Scrum Master Role (`packages/core/src/roles/scrum-master.ts`)
+- Read diffs between task branch and main (`git diff main..branch`)
+- Include diff in the review prompt for the agent
+- On approval: merge branch to main via WorktreeManager
+- On rejection: engineer gets feedback, fixes in same worktree
 
-Runs in a loop:
+### 4. Update Scrum Master
 
-```
-while (not all tasks done):
-  backlog = kanban.getTasksByStatus("backlog")
-  idleEngineers = getIdleEngineers()
+- Create worktree when assigning task to engineer
+- Cleanup worktree after task reaches `done`
 
-  for each (task, engineer) pair:
-    kanban.assignTask(task.id, engineer.id)
-    createWorktree(task)
-    launchEngineer(engineer, task)
+### 5. PM Completeness Check
 
-  reviewTasks = kanban.getTasksByStatus("review")
-  for each reviewTask:
-    assignReviewer(reviewTask)  // different engineer than author
-
-  sleep(pollInterval)
-```
-
-### 4. Engineer Role (`packages/core/src/roles/engineer.ts`)
-
-- Receives a task from KanbanManager
-- Works in assigned git worktree (Phase 3 will add worktree isolation; for now use a subdirectory)
-- System prompt instructs: read task, write code, write tests, run tests
-- Self-correction loop: if tests fail, read output, fix, retry (up to 3x)
-- On success: commit, move task to `review`
-- On failure after 3 retries: mark task `blocked`
-
-### 5. Reviewer Role (`packages/core/src/roles/reviewer.ts`)
-
-- Reuses Engineer's AgentRuntime with a review-focused system prompt
-- Reads the diff between task branch and main
-- Checks code quality, test coverage, acceptance criteria
-- Approved: merge, move task to `done`
-- Rejected: add review comments, move task back to `in_progress`
-
-### 6. Orchestrator (`packages/core/src/orchestrator.ts`)
-
-Main entry point that ties everything together:
-
-```typescript
-class Orchestrator {
-  constructor(config: TeamConfig, projectDir: string);
-  async start(spec: string): Promise<void>;
-  async stop(): Promise<void>;
-}
-```
-
-Flow:
-1. Initialize project dir + git repo
-2. Create agent runtimes from config
-3. Run PM to create tasks
-4. Start Scrum Master loop
-5. Wait for all tasks to reach `done`
-6. Emit `project:completed`
-
-### 7. FailureHandler (`packages/core/src/failure-handler.ts`)
-
-```typescript
-async function handleFailure(task: Task, error: Error, agents: AgentRuntime[]): Promise<void> {
-  if (task.retryCount < maxRetries) {
-    task.retryCount++;
-    await delay(2 ** task.retryCount * 1000);  // exponential backoff
-    return;  // re-run same agent
-  }
-
-  const alternate = agents.find(a => a.id !== task.assignee);
-  if (alternate) {
-    task.assignee = alternate.id;
-    task.retryCount = 0;
-    return;  // reassign
-  }
-
-  task.status = "blocked";  // human intervention needed
-}
-```
-
-## Key Design Decisions
-
-- **Polling vs events for Scrum Master**: Use a polling loop (e.g., every 2 seconds) that reads KanbanManager state. Simpler than reactive, and the file lock prevents races.
-- **Structured output from PM**: The PM agent should return JSON-parseable task lists. Use the system prompt to enforce output format. Parse with Zod.
-- **No worktrees yet**: Phase 2 can use subdirectories for isolation. Phase 3 adds proper `git worktree` support.
-- **Agent concurrency**: Engineers run concurrently via `Promise.all` on their async iterables. The Scrum Master awaits idle agents before assigning new tasks.
+- After all tasks are done, PM reviews the project and creates follow-up tasks if gaps exist
+- Loop back to Scrum Master if new tasks were created
 
 ## How to Verify
 
 ```bash
-# Build everything
 npm run build
 
 # Run with a simple spec (requires SDK API keys)
 node packages/cli/dist/index.js run \
-  --prompt "Build a CLI calculator that supports add, subtract, multiply, divide" \
-  --config examples/team-config.yaml
+  --spec ./spec.md \
+  --config examples/team-config.yaml \
+  --output /tmp/test-project
 ```
 
-Expected behavior:
-1. PM creates 4-6 tasks in kanban.json
-2. Scrum Master assigns tasks to engineers
-3. Engineers write code and tests
-4. Reviews complete, code merges
-5. Final output: working calculator in the project directory
-
-## Files to Create
-
-| File | Description |
-|------|-------------|
-| `packages/core/src/kanban.ts` | KanbanManager class |
-| `packages/core/src/orchestrator.ts` | Main orchestration loop |
-| `packages/core/src/failure-handler.ts` | Retry/reassign/block pipeline |
-| `packages/core/src/roles/product-manager.ts` | PM role logic |
-| `packages/core/src/roles/scrum-master.ts` | SM role logic |
-| `packages/core/src/roles/engineer.ts` | Engineer role logic |
-| `packages/core/src/roles/reviewer.ts` | Reviewer role logic |
-
-Update `packages/core/src/index.ts` to export the new modules.
+Expected: Two engineers work on different tasks simultaneously in separate worktrees, reviewer reads diffs, approves, code merges cleanly to main.

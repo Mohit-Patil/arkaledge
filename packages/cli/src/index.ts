@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
+import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import {
   createAgentRuntime,
   loadConfig,
   globalEventBus,
+  Orchestrator,
   type AgentConfig,
   type AgentMessage,
   type AgentEvent,
@@ -17,18 +19,61 @@ async function main(): Promise<void> {
       sdk: { type: "string", short: "s", default: "claude" },
       model: { type: "string", short: "m" },
       config: { type: "string", short: "c" },
+      spec: { type: "string" },
+      output: { type: "string", short: "o" },
       workdir: { type: "string", short: "w", default: process.cwd() },
       help: { type: "boolean", short: "h", default: false },
     },
     strict: true,
   });
 
-  if (values.help || !values.prompt) {
+  if (values.help || (!values.prompt && !values.spec)) {
     printUsage();
     process.exit(values.help ? 0 : 1);
   }
 
-  // Load team config if provided, otherwise build single-agent config
+  // ── Orchestration mode: --spec or (--config + --prompt) ──
+  if (values.spec || (values.config && values.prompt)) {
+    const spec = values.spec
+      ? await readFile(values.spec, "utf-8")
+      : values.prompt!;
+
+    const config = await loadConfig(values.config ?? "default");
+    const outputDir = values.output ?? "./output";
+
+    console.log(`\n🚀 Arkaledge — Orchestrating team (${config.team.length} agents)\n`);
+    console.log(`   Output: ${outputDir}\n`);
+
+    // Wire event logging
+    globalEventBus.on("*", (event: AgentEvent) => {
+      const icon = eventIcon(event.type);
+      console.log(`${icon} [${event.agentRole}] ${event.summary}`);
+    });
+
+    const orchestrator = new Orchestrator(config, outputDir);
+
+    // Graceful shutdown
+    const shutdown = () => {
+      console.log("\n🛑 Shutting down...");
+      orchestrator.stop().then(() => process.exit(0));
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+
+    try {
+      await orchestrator.start(spec);
+      console.log("\n✅ All tasks complete\n");
+    } catch (error) {
+      console.error(
+        "\n❌ Orchestration error:",
+        error instanceof Error ? error.message : error,
+      );
+      process.exit(1);
+    }
+    return;
+  }
+
+  // ── Single-agent mode (original behavior) ──
   let agentConfig: AgentConfig;
 
   if (values.config) {
@@ -74,7 +119,7 @@ async function main(): Promise<void> {
     "You are a software engineer. Complete the given task by writing clean, working code.";
 
   try {
-    for await (const message of runtime.run(values.prompt, {
+    for await (const message of runtime.run(values.prompt!, {
       systemPrompt,
       workingDirectory: values.workdir ?? process.cwd(),
     })) {
@@ -110,25 +155,41 @@ function printMessage(msg: AgentMessage): void {
   }
 }
 
+function eventIcon(type: string): string {
+  if (type.startsWith("project:")) return "📦";
+  if (type.startsWith("task:")) return "📋";
+  if (type.startsWith("review:")) return "🔍";
+  if (type === "agent:error") return "❌";
+  if (type === "agent:completed") return "✅";
+  if (type === "agent:started") return "▶️";
+  return "💬";
+}
+
 function printUsage(): void {
   console.log(`
 Arkaledge — Autonomous AI Scrum Team Platform
 
 Usage:
   arkaledge run --prompt "..." [options]
+  arkaledge run --spec <path> --config <path> [options]
 
 Options:
-  -p, --prompt   Task prompt for the agent (required)
+  -p, --prompt   Task prompt for the agent (required for single-agent mode)
   -s, --sdk      SDK to use: claude | codex (default: claude)
   -m, --model    Model to use (default: auto-detected from SDK)
   -c, --config   Path to team-config.yaml
+      --spec     Path to product spec file (triggers orchestration mode)
+  -o, --output   Output directory for orchestrated project (default: ./output)
   -w, --workdir  Working directory (default: current directory)
   -h, --help     Show this help message
 
 Examples:
+  # Single agent
   arkaledge run -p "Create a hello world Express app" -s claude
-  arkaledge run -p "Build a REST API" -s codex -m o3
-  arkaledge run -p "Build a todo app" -c ./team-config.yaml
+
+  # Full team orchestration
+  arkaledge run --spec ./spec.md --config ./team-config.yaml --output /tmp/myproject
+  arkaledge run -p "Build a calculator CLI" -c ./team-config.yaml -o /tmp/calc
 `);
 }
 

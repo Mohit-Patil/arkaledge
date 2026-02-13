@@ -40,3 +40,16 @@ export { EventBus, globalEventBus } from "./event-bus.js";
 // Plugins
 export type { ArkaledgePlugin, PluginTool } from "./plugins/plugin-types.js";
 export { loadPlugins } from "./plugins/plugin-loader.js";
+
+// Kanban
+export { KanbanManager } from "./kanban.js";
+
+// Orchestration
+export { Orchestrator } from "./orchestrator.js";
+export { FailureHandler } from "./failure-handler.js";
+
+// Roles
+export { ProductManagerRole } from "./roles/product-manager.js";
+export { ScrumMasterRole } from "./roles/scrum-master.js";
+export { EngineerRole } from "./roles/engineer.js";
+export { ReviewerRole } from "./roles/reviewer.js";

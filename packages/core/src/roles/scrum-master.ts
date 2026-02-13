@@ -40,28 +40,41 @@ export class ScrumMasterRole {
     while (!this.stopped) {
       const tasks = await this.kanban.getAllTasks();
 
-      // Exit: all tasks are done (or blocked permanently)
-      const activeTasks = tasks.filter((t) => t.status !== "done");
+      // 1. Handle blocked tasks before checking exit conditions
       const blockedTasks = tasks.filter((t) => t.status === "blocked");
-      if (activeTasks.length === 0 || (activeTasks.length === blockedTasks.length && this.activeWork.size === 0)) {
+      for (const task of blockedTasks) {
+        await this.failureHandler.handleFailure(task, this.engineers);
+      }
+
+      const currentTasks = await this.kanban.getAllTasks();
+
+      // Exit: all tasks are done (or blocked permanently after recovery attempts)
+      const activeTasks = currentTasks.filter((t) => t.status !== "done");
+      const currentBlockedTasks = currentTasks.filter((t) => t.status === "blocked");
+      if (activeTasks.length === 0 || (activeTasks.length === currentBlockedTasks.length && this.activeWork.size === 0)) {
         break;
       }
 
-      // 1. Assign backlog tasks to idle engineers
-      const backlogTasks = tasks
-        .filter((t) => t.status === "backlog")
+      // 2. Assign backlog tasks and orphaned in_progress tasks to idle engineers
+      const schedulableTasks = currentTasks
+        .filter((t) => t.status === "backlog" || (t.status === "in_progress" && (!t.assignee || (this.idleEngineers.has(t.assignee) && !this.activeWork.has(t.assignee)))))
         .sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority));
 
-      for (const task of backlogTasks) {
+      for (const task of schedulableTasks) {
         if (this.idleEngineers.size === 0) break;
 
-        const engineerId = this.idleEngineers.values().next().value;
+        const engineerId = task.assignee && this.idleEngineers.has(task.assignee)
+          ? task.assignee
+          : this.idleEngineers.values().next().value;
+
         if (!engineerId) break;
 
         this.idleEngineers.delete(engineerId);
 
         await this.kanban.assignTask(task.id, engineerId);
-        await this.kanban.moveTask(task.id, "in_progress", engineerId);
+        if (task.status === "backlog") {
+          await this.kanban.moveTask(task.id, "in_progress", engineerId);
+        }
 
         const engineer = this.engineers.get(engineerId)!;
         const engineerRole = new EngineerRole(engineer.runtime, this.kanban, this.eventBus);
@@ -87,9 +100,9 @@ export class ScrumMasterRole {
         this.activeWork.set(engineerId, workPromise);
       }
 
-      // 2. Assign review tasks to idle engineers (different from author)
+      // 3. Assign review tasks to idle engineers (different from author)
       if (this.workflowConfig.review_required) {
-        const reviewTasks = tasks.filter((t) => t.status === "review");
+        const reviewTasks = currentTasks.filter((t) => t.status === "review");
 
         for (const task of reviewTasks) {
           // Find an idle engineer who is NOT the author
@@ -123,17 +136,13 @@ export class ScrumMasterRole {
         }
       } else {
         // If review not required, move review tasks straight to done
-        const reviewTasks = tasks.filter((t) => t.status === "review");
+        const reviewTasks = currentTasks.filter((t) => t.status === "review");
         for (const task of reviewTasks) {
           await this.kanban.moveTask(task.id, "done", "scrum-master", "Auto-approved (review not required)");
         }
       }
 
-      // 3. Handle blocked tasks
-      const currentBlockedTasks = tasks.filter((t) => t.status === "blocked");
-      for (const task of currentBlockedTasks) {
-        await this.failureHandler.handleFailure(task, this.engineers);
-      }
+      const latestTasks = await this.kanban.getAllTasks();
 
       // Emit summary for dashboard observability
       this.eventBus.emit({
@@ -141,10 +150,10 @@ export class ScrumMasterRole {
         agentId: "scrum-master",
         agentRole: "scrum-master",
         timestamp: Date.now(),
-        summary: `Loop: ${tasks.filter((t) => t.status === "done").length}/${tasks.length} done, ${this.idleEngineers.size} idle, ${this.activeWork.size} active`,
+        summary: `Loop: ${latestTasks.filter((t) => t.status === "done").length}/${latestTasks.length} done, ${this.idleEngineers.size} idle, ${this.activeWork.size} active`,
         data: {
-          done: tasks.filter((t) => t.status === "done").length,
-          total: tasks.length,
+          done: latestTasks.filter((t) => t.status === "done").length,
+          total: latestTasks.length,
           idle: this.idleEngineers.size,
           active: this.activeWork.size,
         },

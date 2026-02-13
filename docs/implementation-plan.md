@@ -92,3 +92,11 @@
 | `eventemitter3` | ^5 | Event bus |
 | `nanoid` | ^5 | ID generation |
 | `turbo` | ^2 | Monorepo build system |
+
+---
+
+## SDK Maintenance Automation
+
+- `/.github/workflows/ci.yml` runs typecheck/build plus SDK contract smoke checks for the peer-version ranges declared in `packages/core/package.json`.
+- `/.github/workflows/sdk-latest-canary.yml` runs weekly against `@latest` Codex + Claude SDK releases to detect upstream breaking changes early.
+- `/.github/dependabot.yml` opens weekly dependency update PRs for npm and GitHub Actions.

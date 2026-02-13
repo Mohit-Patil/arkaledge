@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck core
+        run: npm run typecheck --workspace @arkaledge/core
+
+      - name: Build core
+        run: npm run build --workspace @arkaledge/core
+
+      - name: Typecheck CLI
+        run: npm run typecheck --workspace @arkaledge/cli
+
+      - name: Build CLI
+        run: npm run build --workspace @arkaledge/cli
+
+      - name: Install SDK peer versions
+        run: npm run install:sdk-peers
+
+      - name: Run SDK contract smoke checks
+        run: npm run check:sdk-contracts

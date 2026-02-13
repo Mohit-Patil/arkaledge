@@ -10,7 +10,10 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "install:sdk-peers": "node scripts/install-sdk-peers.mjs",
+    "check:sdk-contracts": "node scripts/check-sdk-contracts.mjs",
+    "check:sdk": "npm run install:sdk-peers && npm run check:sdk-contracts"
   },
   "devDependencies": {
     "turbo": "^2",

@@ -1,0 +1,34 @@
+name: SDK Latest Canary
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Monday at 14:00 UTC
+    - cron: "0 14 * * 1"
+
+jobs:
+  latest-sdk-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Install latest SDK packages
+        run: npm install --no-save @openai/codex-sdk@latest @anthropic-ai/claude-agent-sdk@latest
+
+      - name: Typecheck core against latest SDKs
+        run: npm run typecheck --workspace @arkaledge/core
+
+      - name: Run SDK contract smoke checks
+        run: npm run check:sdk-contracts

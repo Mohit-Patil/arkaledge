@@ -1,0 +1,10 @@
+{
+  "name": "@arkaledge/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Dashboard build skipped - Phase 4'",
+    "dev": "echo 'Dashboard dev skipped - Phase 4'",
+    "typecheck": "echo 'Dashboard typecheck skipped - Phase 4'"
+  }
+}

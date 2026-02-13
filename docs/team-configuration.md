@@ -59,7 +59,7 @@ plugins:
 
 ### Codex SDK Tools
 
-`shell`, `file-ops`, `web-search`
+Codex does not use a Claude-style per-tool allowlist. For `sdk: codex`, `tools` is currently treated as metadata only; runtime behavior is controlled via thread options (sandbox + approval policy) and configured MCP servers.
 
 ### Workflow Settings
 

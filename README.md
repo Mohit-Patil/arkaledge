@@ -145,15 +145,3 @@ export OPENAI_API_KEY="sk-..."
 ## License
 
 Private - All rights reserved
-
-<!-- STATS_START -->
-## Project Statistics
-
-| Metric | Value |
-|--------|-------|
-| TypeScript Files | - |
-| Lines of Code | - |
-| Last Updated | - |
-
-_Last automatically updated via GitHub Actions_
-<!-- STATS_END -->

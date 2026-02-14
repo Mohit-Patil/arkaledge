@@ -3,6 +3,8 @@ import type { EventBus } from "../event-bus.js";
 import { FailureHandler } from "../failure-handler.js";
 import type { KanbanManager } from "../kanban.js";
 import type { AgentConfig, WorkflowConfig } from "../types.js";
+import type { Task } from "../types.js";
+import type { WorktreeManager } from "../worktree-manager.js";
 import { EngineerRole } from "./engineer.js";
 import { ReviewerRole } from "./reviewer.js";
 
@@ -16,6 +18,7 @@ export class ScrumMasterRole {
   private stopped = false;
   private idleEngineers: Set<string>;
   private activeWork = new Map<string, Promise<void>>();
+  private activeReviewTasks = new Set<string>();
   private failureHandler: FailureHandler;
 
   constructor(
@@ -23,6 +26,7 @@ export class ScrumMasterRole {
     private kanban: KanbanManager,
     private eventBus: EventBus,
     private workflowConfig: WorkflowConfig,
+    private worktreeManager: WorktreeManager,
   ) {
     this.idleEngineers = new Set(engineers.keys());
     this.failureHandler = new FailureHandler(kanban, eventBus, workflowConfig.max_retries);
@@ -71,16 +75,41 @@ export class ScrumMasterRole {
 
         this.idleEngineers.delete(engineerId);
 
-        await this.kanban.assignTask(task.id, engineerId);
-        if (task.status === "backlog") {
-          await this.kanban.moveTask(task.id, "in_progress", engineerId);
+        let runnableTask: Task = task;
+        try {
+          if (!runnableTask.branch || !runnableTask.worktree) {
+            const branchName = runnableTask.branch ?? buildTaskBranchName(runnableTask);
+            const worktreePath = await this.worktreeManager.createWorktree(runnableTask.id, branchName);
+            runnableTask = await this.kanban.updateTask(runnableTask.id, {
+              branch: branchName,
+              worktree: worktreePath,
+            });
+          }
+        } catch (error) {
+          this.idleEngineers.add(engineerId);
+          const detail = error instanceof Error ? error.message : String(error);
+          await this.kanban.moveTask(task.id, "blocked", "scrum-master", `Failed to prepare worktree: ${detail}`);
+          this.eventBus.emit({
+            type: "agent:error",
+            agentId: "scrum-master",
+            agentRole: "scrum-master",
+            timestamp: Date.now(),
+            summary: `Failed to prepare worktree for task "${task.title}"`,
+            data: { taskId: task.id, error: detail },
+          });
+          continue;
+        }
+
+        runnableTask = await this.kanban.assignTask(runnableTask.id, engineerId);
+        if (runnableTask.status === "backlog") {
+          runnableTask = await this.kanban.moveTask(runnableTask.id, "in_progress", engineerId);
         }
 
         const engineer = this.engineers.get(engineerId)!;
         const engineerRole = new EngineerRole(engineer.runtime, this.kanban, this.eventBus);
 
         const workPromise = engineerRole
-          .executeTask(task, projectDir, this.workflowConfig.max_retries)
+          .executeTask(runnableTask, projectDir, this.workflowConfig.max_retries)
           .then(() => {
             this.activeWork.delete(engineerId);
             this.idleEngineers.add(engineerId);
@@ -102,7 +131,7 @@ export class ScrumMasterRole {
 
       // 3. Assign review tasks to idle engineers (different from author)
       if (this.workflowConfig.review_required) {
-        const reviewTasks = currentTasks.filter((t) => t.status === "review");
+        const reviewTasks = currentTasks.filter((t) => t.status === "review" && !this.activeReviewTasks.has(t.id));
 
         for (const task of reviewTasks) {
           // Find an idle engineer who is NOT the author
@@ -110,19 +139,28 @@ export class ScrumMasterRole {
           if (!reviewerId) continue;
 
           this.idleEngineers.delete(reviewerId);
+          this.activeReviewTasks.add(task.id);
 
           const reviewer = this.engineers.get(reviewerId)!;
-          const reviewerRole = new ReviewerRole(reviewer.runtime, this.kanban, this.eventBus);
+          const reviewerRole = new ReviewerRole(
+            reviewer.runtime,
+            this.kanban,
+            this.eventBus,
+            this.worktreeManager,
+            this.workflowConfig.auto_merge,
+          );
 
           const reviewPromise = reviewerRole
             .reviewTask(task, projectDir)
             .then(() => {
               this.activeWork.delete(reviewerId);
               this.idleEngineers.add(reviewerId);
+              this.activeReviewTasks.delete(task.id);
             })
             .catch((err) => {
               this.activeWork.delete(reviewerId);
               this.idleEngineers.add(reviewerId);
+              this.activeReviewTasks.delete(task.id);
               this.eventBus.emit({
                 type: "agent:error",
                 agentId: reviewerId,
@@ -135,10 +173,44 @@ export class ScrumMasterRole {
           this.activeWork.set(reviewerId, reviewPromise);
         }
       } else {
-        // If review not required, move review tasks straight to done
+        // If review not required, auto-approve review tasks.
         const reviewTasks = currentTasks.filter((t) => t.status === "review");
         for (const task of reviewTasks) {
-          await this.kanban.moveTask(task.id, "done", "scrum-master", "Auto-approved (review not required)");
+          if (!this.workflowConfig.auto_merge) {
+            await this.kanban.moveTask(
+              task.id,
+              "done",
+              "scrum-master",
+              "Auto-approved (manual merge required)",
+            );
+            continue;
+          }
+
+          if (!task.branch) {
+            await this.kanban.moveTask(
+              task.id,
+              "blocked",
+              "scrum-master",
+              "Auto-approval failed: missing branch metadata",
+            );
+            continue;
+          }
+
+          try {
+            await this.worktreeManager.mergeToMain(task.branch);
+            if (task.worktree) {
+              await this.worktreeManager.removeWorktree(task.id);
+              await this.kanban.updateTask(task.id, { worktree: undefined });
+            }
+            await this.kanban.moveTask(task.id, "done", "scrum-master", "Auto-approved and merged to main");
+          } catch (error) {
+            await this.kanban.moveTask(
+              task.id,
+              "blocked",
+              "scrum-master",
+              `Auto-approval merge failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
         }
       }
 
@@ -187,6 +259,15 @@ function priorityWeight(priority: "high" | "medium" | "low"): number {
     case "medium": return 1;
     case "low": return 2;
   }
+}
+
+function buildTaskBranchName(task: Task): string {
+  const slug = task.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return `task/${task.id}${slug ? `-${slug}` : ""}`;
 }
 
 function sleep(ms: number): Promise<void> {

@@ -7,6 +7,7 @@ import { KanbanManager } from "./kanban.js";
 import { ProductManagerRole } from "./roles/product-manager.js";
 import { ScrumMasterRole } from "./roles/scrum-master.js";
 import type { AgentConfig, TeamConfig } from "./types.js";
+import { WorktreeManager } from "./worktree-manager.js";
 
 /**
  * Main orchestrator: wires PM breakdown → Scrum Master coordination → completion.
@@ -86,6 +87,7 @@ export class Orchestrator {
       kanban,
       eventBus,
       this.config.workflow,
+      new WorktreeManager(this.projectDir),
     );
 
     await this.scrumMaster.run(this.projectDir);

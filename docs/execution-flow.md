@@ -3,7 +3,7 @@
 ## Full Lifecycle
 
 ```
-1. User provides product spec via dashboard (or CLI)
+1. User provides product spec via CLI (dashboard launch wiring is planned in Phase 4)
          |
 2. Orchestrator initializes project directory + git repo
          |
@@ -19,21 +19,20 @@
 5. Engineer agent works
     |-- Writes code + tests in worktree
     |-- Self-corrects on test failure (up to 3x)
+    |-- Ensures task branch has commit(s)
     |-- Moves task to review
          |
 6. Scrum Master assigns reviewer
     |-- Different engineer reviews the diff
-    |-- Approved: merge to main, task to done
+    |-- Approved: task to done (and if `auto_merge=true`, merge to main + cleanup worktree)
     |-- Rejected: task to in_progress (back to engineer)
          |
 7. Loop continues until all tasks are done
          |
-8. PM verifies completeness
-    |-- Creates new tasks if gaps exist
-    |-- OR signals done
-         |
-9. Orchestrator emits "project_complete" event
+8. Orchestrator emits `project:completed` event
 ```
+
+Planned next step: PM completeness re-check loop that can create follow-up tasks before final completion.
 
 ## Task State Machine
 
@@ -56,7 +55,7 @@
 | `in_progress` | `blocked` | 3 failed retries, no alternate agent |
 | `review` | `done` | Reviewer approves |
 | `review` | `in_progress` | Reviewer requests changes |
-| `blocked` | `in_progress` | Reassigned to different agent |
+| `blocked` | `backlog` | Failure handler retries/reassigns task |
 
 ## Event Timeline (Example)
 

@@ -1,5 +1,9 @@
 import type { AgentMessage, RunOptions, SdkType } from "../types.js";
 
+export interface ResumeOptions {
+  workingDirectory?: string;
+}
+
 /**
  * Unified interface for running AI agents across different SDK backends.
  * Both Claude Agent SDK and Codex SDK are adapted to this interface.
@@ -18,7 +22,11 @@ export interface AgentRuntime {
   /**
    * Resume a previous agent session (if supported by the SDK).
    */
-  resume(sessionId: string, prompt: string): AsyncIterable<AgentMessage>;
+  resume(
+    sessionId: string,
+    prompt: string,
+    options?: ResumeOptions,
+  ): AsyncIterable<AgentMessage>;
 
   /**
    * Abort the currently running agent.

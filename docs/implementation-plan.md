@@ -41,11 +41,11 @@
 
 **Goal**: Engineers work in isolated worktrees, reviewers check diffs.
 
-- [ ] Implement `WorktreeManager` -- create/remove git worktrees
-- [ ] Update Engineer role to work in assigned worktree
-- [ ] Implement Reviewer role: diff reading, approval/rejection
-- [ ] Merge flow: approved to merge to main, cleanup worktree
-- [ ] Rejection flow: feedback, task back to in_progress
+- [x] Implement `WorktreeManager` -- create/remove git worktrees
+- [x] Update Engineer role to work in assigned worktree
+- [x] Implement Reviewer role: diff reading, approval/rejection
+- [x] Merge flow: approved to merge to main, cleanup worktree
+- [x] Rejection flow: feedback, task back to in_progress
 
 **Verification**: Two engineers work on different tasks simultaneously in separate worktrees, reviewer approves, code merges cleanly.
 
@@ -55,7 +55,7 @@
 
 **Goal**: Real-time web UI showing agent activity.
 
-- [ ] Next.js app setup in `packages/dashboard`
+- [x] Dashboard UI prototype setup in `packages/dashboard` (Vite + React)
 - [ ] SSE endpoint (`/api/events`) streaming from EventBus
 - [ ] Launch page: spec input + team config
 - [ ] Project view: agent cards + log streams
@@ -87,7 +87,7 @@
 |---------|---------|---------|
 | `@anthropic-ai/claude-agent-sdk` | latest | Claude agent runtime |
 | `@openai/codex-sdk` | latest | Codex agent runtime |
-| `next` | ^15 | Web dashboard |
+| `react` + `vite` | current workspace versions | Dashboard UI |
 | `proper-lockfile` | ^4 | File-level locking for kanban.json |
 | `zod` | ^3 | Config validation |
 | `yaml` | ^2 | YAML parsing |

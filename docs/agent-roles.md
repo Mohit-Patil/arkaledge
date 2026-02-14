@@ -15,7 +15,7 @@
    - Acceptance criteria
    - Priority (high/medium/low)
 4. Writes tasks to `kanban.json` with status `backlog`
-5. Continuously monitors "done" tasks and creates follow-up tasks if gaps exist
+5. (Planned next) Runs a completeness pass after all tasks are done and can create follow-up tasks
 
 ### System Prompt Focus
 
@@ -37,7 +37,7 @@ The PM agent is prompted to think like a senior product manager who understands 
 2. When backlog tasks exist and engineers are idle: assigns highest-priority task
 3. When a task moves to `review`: assigns a *different* engineer as reviewer
 4. When a task is blocked (3 failed retries): reassigns to different agent/model
-5. When all tasks are done: signals PM to verify completeness
+5. When all tasks are done: exits coordination loop
 6. Emits summary events for dashboard
 
 ### Decision Logic
@@ -57,7 +57,7 @@ IF task blocked (retryCount >= max_retries):
     Reset retry count, reassign
 
 IF all tasks done:
-    Signal PM for completeness check
+    Exit coordination loop
 ```
 
 ---
@@ -74,7 +74,7 @@ IF all tasks done:
 3. Implements the feature/fix in its worktree
 4. Writes tests
 5. Runs tests; if failing, enters self-correcting loop (up to 3 attempts)
-6. Commits and moves task to `review`
+6. Ensures branch has commit(s), then moves task to `review`
 
 ### Self-Correction Loop
 
@@ -107,8 +107,7 @@ Uses the same Engineer agent with a review-focused system prompt.
    - Test coverage
    - Acceptance criteria met
 3. If approved:
-   - Merges branch to main
-   - Removes worktree
+   - If `workflow.auto_merge=true`: merges branch to main and removes worktree
    - Moves task to `done`
 4. If changes requested:
    - Adds review comments to the task

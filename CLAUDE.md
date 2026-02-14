@@ -6,6 +6,9 @@ Arkaledge is an autonomous AI Scrum team where AI agents (Product Manager, Scrum
 
 | Task | Command |
 |------|---------|
+| Development | `npm run dev` |
+| Lint | `npm run lint` |
+| Typecheck | `npm run typecheck` |
 | Run project | `npm run build && node packages/cli/dist/index.js run --spec <spec.md> --config <config.yaml> --output <dir>` |
 | Build | `npm run build` |
 
@@ -54,6 +57,14 @@ See [docs/execution-flow.md](docs/execution-flow.md) for state machine and failu
 
 YAML with team, workflow, and plugins. See [docs/team-configuration.md](docs/team-configuration.md).
 
+## Environment
+
+Required environment variables:
+- `ANTHROPIC_API_KEY` - For Claude SDK
+- `OPENAI_API_KEY` - For Codex SDK
+
+Set these in your shell or `.env` file before running.
+
 ## Interfaces
 
 - `AgentRuntime` - unified SDK interface
@@ -82,3 +93,9 @@ When working on specific areas, consult:
 - [docs/execution-flow.md](docs/execution-flow.md) - State machine, events, failure pipeline
 - [docs/team-configuration.md](docs/team-configuration.md) - YAML config format, validation
 - [docs/project-structure.md](docs/project-structure.md) - Monorepo layout details
+
+## Gotchas
+
+- SDK packages are optional peer dependencies - run `npm run check:sdk` to validate
+- Git worktrees are created per engineer in the output directory
+- CLI entry point is `packages/cli/dist/index.js`, not the src

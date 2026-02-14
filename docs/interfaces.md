@@ -11,8 +11,14 @@ interface AgentRuntime {
   readonly model: string;
 
   run(prompt: string, options: RunOptions): AsyncIterable<AgentMessage>;
-  resume(sessionId: string, prompt: string): AsyncIterable<AgentMessage>;
+  resume(sessionId: string, prompt: string, options?: ResumeOptions): AsyncIterable<AgentMessage>;
   abort(): Promise<void>;
+}
+```
+
+```typescript
+interface ResumeOptions {
+  workingDirectory?: string;
 }
 ```
 
@@ -76,6 +82,18 @@ interface KanbanState {
 
 Stored at: `<project-dir>/.arkaledge/kanban.json`
 File locking via `proper-lockfile` npm package.
+
+## Worktree Management
+
+```typescript
+class WorktreeManager {
+  constructor(projectDir: string);
+  createWorktree(taskId: string, branchName: string): Promise<string>;
+  removeWorktree(taskId: string): Promise<void>;
+  mergeToMain(branchName: string): Promise<void>;
+  getDiff(branchName: string): Promise<string>;
+}
+```
 
 ## Event System
 

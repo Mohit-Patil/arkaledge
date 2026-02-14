@@ -43,6 +43,7 @@ export { loadPlugins } from "./plugins/plugin-loader.js";
 
 // Kanban
 export { KanbanManager } from "./kanban.js";
+export { WorktreeManager } from "./worktree-manager.js";
 
 // Orchestration
 export { Orchestrator } from "./orchestrator.js";

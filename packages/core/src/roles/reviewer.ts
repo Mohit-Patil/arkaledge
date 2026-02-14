@@ -3,11 +3,14 @@ import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
 import type { Task } from "../types.js";
+import type { WorktreeManager } from "../worktree-manager.js";
 
 const verdictSchema = z.object({
   verdict: z.enum(["approved", "rejected"]),
   comments: z.array(z.string()),
 });
+
+const DIFF_CHAR_LIMIT = 20000;
 
 const REVIEWER_SYSTEM_PROMPT = `You are a code reviewer. Review the implementation for the given task.
 
@@ -36,26 +39,69 @@ Output ONLY JSON with this exact shape:
 If all checks pass, verdict is "approved". Otherwise "rejected" with specific, actionable comments.`;
 
 /**
- * Reviews completed work by reading the project directory and checking acceptance criteria.
+ * Reviews completed work using the task branch diff and acceptance criteria.
  */
 export class ReviewerRole {
   constructor(
     private runtime: AgentRuntime,
     private kanban: KanbanManager,
     private eventBus: EventBus,
+    private worktreeManager: WorktreeManager,
+    private autoMerge: boolean,
   ) {}
 
   async reviewTask(task: Task, projectDir: string): Promise<"approved" | "rejected"> {
+    if (!task.branch) {
+      await this.kanban.moveTask(
+        task.id,
+        "blocked",
+        this.runtime.id,
+        "Missing task branch metadata for review",
+      );
+      this.eventBus.emit({
+        type: "agent:error",
+        agentId: this.runtime.id,
+        agentRole: "reviewer",
+        timestamp: Date.now(),
+        summary: `Review failed: ${task.title} (missing branch metadata)`,
+        data: { taskId: task.id },
+      });
+      return "rejected";
+    }
+
     this.eventBus.emit({
       type: "review:started",
       agentId: this.runtime.id,
       agentRole: "reviewer",
       timestamp: Date.now(),
       summary: `Review started: ${task.title}`,
-      data: { taskId: task.id },
+      data: { taskId: task.id, branch: task.branch, worktree: task.worktree },
     });
 
+    let diff: string;
+    try {
+      diff = await this.worktreeManager.getDiff(task.branch);
+    } catch (error) {
+      await this.kanban.moveTask(
+        task.id,
+        "blocked",
+        this.runtime.id,
+        `Unable to compute branch diff: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.eventBus.emit({
+        type: "agent:error",
+        agentId: this.runtime.id,
+        agentRole: "reviewer",
+        timestamp: Date.now(),
+        summary: `Review failed: ${task.title} (diff generation failed)`,
+        data: { taskId: task.id, branch: task.branch },
+      });
+      return "rejected";
+    }
+
+    const trimmedDiff = diff.trim().slice(0, DIFF_CHAR_LIMIT);
     const criteria = task.acceptanceCriteria.map((c) => `- ${c}`).join("\n");
+    const reviewHistory = (task.reviewComments ?? []).map((c) => `- ${c}`).join("\n");
     const userPrompt = `Review the implementation for this task:
 
 **Title:** ${task.title}
@@ -65,13 +111,21 @@ export class ReviewerRole {
 **Acceptance Criteria:**
 ${criteria}
 
-Read the relevant files in the project directory and check if the implementation meets all acceptance criteria. Run the tests if they exist.`;
+**Branch:** ${task.branch}
+
+**Diff (main...${task.branch}):**
+\`\`\`diff
+${trimmedDiff || "(No diff output)"}
+\`\`\`
+
+${reviewHistory ? `**Previous Review Feedback:**\n${reviewHistory}\n` : ""}
+Read the relevant files in the task worktree, validate acceptance criteria, and run tests if they exist.`;
 
     // Collect agent output
     let fullOutput = "";
     for await (const message of this.runtime.run(userPrompt, {
       systemPrompt: REVIEWER_SYSTEM_PROMPT,
-      workingDirectory: projectDir,
+      workingDirectory: task.worktree ?? projectDir,
     })) {
       if (message.type === "text") {
         fullOutput += message.content;
@@ -103,7 +157,31 @@ Read the relevant files in the project directory and check if the implementation
     }
 
     if (verdict === "approved") {
-      await this.kanban.moveTask(task.id, "done", this.runtime.id, "Review approved");
+      if (this.autoMerge) {
+        try {
+          await this.worktreeManager.mergeToMain(task.branch);
+          await this.worktreeManager.removeWorktree(task.id);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          await this.kanban.moveTask(task.id, "blocked", this.runtime.id, `Merge/cleanup failed: ${detail}`);
+
+          this.eventBus.emit({
+            type: "agent:error",
+            agentId: this.runtime.id,
+            agentRole: "reviewer",
+            timestamp: Date.now(),
+            summary: `Review approved but merge failed: ${task.title}`,
+            data: { taskId: task.id, branch: task.branch, error: detail },
+          });
+
+          return "rejected";
+        }
+
+        await this.kanban.updateTask(task.id, { worktree: undefined });
+        await this.kanban.moveTask(task.id, "done", this.runtime.id, "Review approved and merged to main");
+      } else {
+        await this.kanban.moveTask(task.id, "done", this.runtime.id, "Review approved (manual merge required)");
+      }
 
       this.eventBus.emit({
         type: "review:approved",
@@ -111,7 +189,7 @@ Read the relevant files in the project directory and check if the implementation
         agentRole: "reviewer",
         timestamp: Date.now(),
         summary: `Review approved: ${task.title}`,
-        data: { taskId: task.id, comments },
+        data: { taskId: task.id, comments, branch: task.branch, autoMerge: this.autoMerge },
       });
     } else {
       // Add each comment to the task
@@ -128,7 +206,7 @@ Read the relevant files in the project directory and check if the implementation
         agentRole: "reviewer",
         timestamp: Date.now(),
         summary: `Review rejected: ${task.title} (${comments.length} comments)`,
-        data: { taskId: task.id, comments },
+        data: { taskId: task.id, comments, branch: task.branch, worktree: task.worktree },
       });
     }
 

@@ -7,7 +7,7 @@ Arkaledge is an autonomous AI Scrum team platform where a team of AI agents (Pro
 ## High-Level Architecture
 
 ```
-User --> Web Dashboard --> Orchestrator --> Agent Pool
+User --> CLI / Dashboard (prototype) --> Orchestrator --> Agent Pool
                                |
                          Kanban State (JSON)
                                |
@@ -25,7 +25,7 @@ User --> Web Dashboard --> Orchestrator --> Agent Pool
 | **Kanban State** | JSON file (`kanban.json`) tracking all tasks and their status |
 | **Git Worktrees** | Isolated working directories per engineer for parallel development |
 | **Event Bus** | In-process event emitter for real-time observability |
-| **Web Dashboard** | Next.js app for launching projects and monitoring agent activity |
+| **Web Dashboard (Prototype)** | Vite + React UI currently using static/mock data (Phase 4 will wire live APIs/events) |
 
 ## SDK Abstraction
 
@@ -38,7 +38,7 @@ This allows mixing models and SDKs within the same team. An engineer can be powe
 
 ## Data Flow
 
-1. User submits a product spec via the dashboard
+1. User submits a product spec via CLI (dashboard launch wiring is Phase 4)
 2. Orchestrator initializes a project directory with git
 3. PM agent reads the spec and creates tasks in `kanban.json`
 4. Scrum Master monitors Kanban state in a loop:
@@ -48,19 +48,22 @@ This allows mixing models and SDKs within the same team. An engineer can be powe
 5. Engineers work in their worktrees:
    - Write code and tests
    - Self-correct on test failures (up to 3 attempts)
+   - Ensure task branch has commits before review
    - Move completed tasks to review
 6. Scrum Master assigns reviewers (different engineer reviews the diff)
-7. Reviewer approves (merge to main) or rejects (back to engineer)
-8. Loop continues until all tasks are done
-9. PM verifies completeness and creates follow-up tasks if needed
-10. Orchestrator emits `project_complete` event
+7. Reviewer approves or rejects (back to engineer)
+8. If `auto_merge=true`, approved tasks are merged to `main` and worktrees are cleaned up
+9. Loop continues until all tasks are done (or permanently blocked after recovery attempts)
+10. Orchestrator emits `project:completed` event
+
+PM completeness re-check loop is planned next (see `docs/NEXT.md`).
 
 ## Concurrency Model
 
 - Each engineer works in an isolated git worktree
 - Kanban state uses file-level locking via `proper-lockfile`
 - The orchestrator is single-threaded (Node.js event loop) but agents run concurrently via async iterables
-- Events are emitted asynchronously and streamed to the dashboard via SSE
+- Events are emitted asynchronously; dashboard SSE streaming is planned for Phase 4
 
 ## Failure Handling
 

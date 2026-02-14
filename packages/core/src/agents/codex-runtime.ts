@@ -1,6 +1,6 @@
 import type { ThreadEvent, ThreadItem } from "@openai/codex-sdk";
 import type { AgentMessage, RunOptions, SdkType } from "../types.js";
-import type { AgentRuntime } from "./agent-runtime.js";
+import type { AgentRuntime, ResumeOptions } from "./agent-runtime.js";
 
 /**
  * Codex SDK adapter.
@@ -27,10 +27,11 @@ export class CodexAgentRuntime implements AgentRuntime {
   async *resume(
     sessionId: string,
     prompt: string,
+    options?: ResumeOptions,
   ): AsyncIterable<AgentMessage> {
     yield* this.runThread(prompt, {
       systemPrompt: "",
-      workingDirectory: process.cwd(),
+      workingDirectory: options?.workingDirectory ?? process.cwd(),
     }, sessionId);
   }
 

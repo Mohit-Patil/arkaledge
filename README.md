@@ -45,6 +45,7 @@ node packages/cli/dist/index.js run --spec <spec.md> --config <config.yaml> --ou
 | **Git Worktrees** | Isolated working directories per engineer for parallel development |
 | **Event Bus** | In-process event emitter for real-time observability |
 | **CLI** | Command-line interface for running agents and orchestration |
+| **Dashboard (Prototype)** | Vite + React UI prototype (full real-time integration is Phase 4) |
 
 ### SDK Abstraction
 
@@ -107,9 +108,10 @@ arkaledge/
 │   │   └── src/
 │   │       ├── orchestrator.ts
 │   │       ├── kanban.ts
+│   │       ├── worktree-manager.ts
 │   │       ├── agents/       # Claude/Codex runtimes
 │   │       └── roles/        # PM, SM, Engineer, Reviewer
-│   ├── dashboard/      # Web UI (Next.js)
+│   ├── dashboard/      # Web UI prototype (Vite + React)
 │   └── cli/            # CLI entry point
 ├── docs/               # Architecture documentation
 └── examples/           # Example configurations
@@ -120,7 +122,7 @@ arkaledge/
 | Phase | Status |
 |-------|--------|
 | 1-2 (Core) | Complete |
-| 3 (Worktrees) | In Progress |
+| 3 (Worktrees + PR flow) | Complete |
 | 4 (Dashboard) | Planned |
 | 5 (Plugins) | Planned |
 

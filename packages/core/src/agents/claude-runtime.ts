@@ -1,5 +1,5 @@
 import type { AgentMessage, RunOptions, SdkType } from "../types.js";
-import type { AgentRuntime } from "./agent-runtime.js";
+import type { AgentRuntime, ResumeOptions } from "./agent-runtime.js";
 
 /**
  * Claude Agent SDK adapter.
@@ -71,11 +71,12 @@ export class ClaudeAgentRuntime implements AgentRuntime {
   async *resume(
     _sessionId: string,
     prompt: string,
+    options?: ResumeOptions,
   ): AsyncIterable<AgentMessage> {
     // Claude Agent SDK resume support — pass through to run for now
     yield* this.run(prompt, {
       systemPrompt: "",
-      workingDirectory: process.cwd(),
+      workingDirectory: options?.workingDirectory ?? process.cwd(),
     });
   }
 

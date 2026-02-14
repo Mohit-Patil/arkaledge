@@ -14,7 +14,8 @@
     "typecheck": "turbo typecheck",
     "install:sdk-peers": "node scripts/install-sdk-peers.mjs",
     "check:sdk-contracts": "node scripts/check-sdk-contracts.mjs",
-    "check:sdk": "npm run install:sdk-peers && npm run check:sdk-contracts"
+    "check:sdk": "npm run install:sdk-peers && npm run check:sdk-contracts",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -34,5 +35,8 @@
   "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.57.1"
   }
 }

@@ -1,6 +1,6 @@
-import type { AgentRuntime } from "./agent-runtime.js";
-import type { AgentMessage, RunOptions, SdkType } from "../types.js";
 import type { ThreadEvent, ThreadItem } from "@openai/codex-sdk";
+import type { AgentMessage, RunOptions, SdkType } from "../types.js";
+import type { AgentRuntime } from "./agent-runtime.js";
 
 /**
  * Codex SDK adapter.

@@ -64,15 +64,13 @@ export class EngineerRole {
     });
 
     const userPrompt = buildTaskPrompt(task);
-    let lastOutput = "";
-    let success = false;
     let sessionId: string | undefined;
 
     // Initial run
     const result = await this.runAndCollect(userPrompt, projectDir);
-    lastOutput = result.output;
+    let lastOutput = result.output;
     sessionId = result.sessionId;
-    success = !hasTestFailures(lastOutput);
+    let success = !hasTestFailures(lastOutput);
 
     // Self-correction loop
     let retries = 0;

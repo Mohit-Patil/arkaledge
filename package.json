@@ -2,6 +2,7 @@
   "name": "arkaledge",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Autonomous AI Scrum Team Platform",
   "workspaces": [
     "packages/*"
@@ -16,6 +17,13 @@
     "check:sdk": "npm run install:sdk-peers && npm run check:sdk-contracts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "turbo": "^2",
     "typescript": "^5.7"
   },

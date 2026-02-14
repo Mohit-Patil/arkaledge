@@ -2,9 +2,9 @@ import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import { FailureHandler } from "../failure-handler.js";
 import type { KanbanManager } from "../kanban.js";
+import type { AgentConfig, WorkflowConfig } from "../types.js";
 import { EngineerRole } from "./engineer.js";
 import { ReviewerRole } from "./reviewer.js";
-import type { AgentConfig, WorkflowConfig } from "../types.js";
 
 const POLL_INTERVAL_MS = 2000;
 

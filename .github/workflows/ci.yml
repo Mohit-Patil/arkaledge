@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint all packages
+        run: npm run lint
+
       - name: Typecheck core
         run: npm run typecheck --workspace @arkaledge/core
 

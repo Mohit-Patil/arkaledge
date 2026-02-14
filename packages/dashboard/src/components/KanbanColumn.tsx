@@ -1,5 +1,5 @@
-import React from 'react';
 import type { Task, TaskStatus } from '@arkaledge/core';
+import React from 'react';
 import { TaskCard } from './TaskCard';
 
 export interface KanbanColumnProps {

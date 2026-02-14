@@ -14,8 +14,6 @@ const taskItemSchema = z.object({
 
 const taskArraySchema = z.array(taskItemSchema);
 
-type TaskItem = z.infer<typeof taskItemSchema>;
-
 const PM_SYSTEM_PROMPT = `You are a Product Manager. Your job is to break a product specification into granular, independently implementable engineering tasks.
 
 Output ONLY a JSON array — no prose, no markdown fences, no explanation.

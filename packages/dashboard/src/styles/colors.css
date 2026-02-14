@@ -1,0 +1,173 @@
+/* Terminal Design - Amber Color Variables */
+
+:root {
+  /* Core Backgrounds */
+  --bg-primary: #0c0c0c;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+
+  /* Accent Colors - Amber/Orange */
+  --accent-primary: #ffb000;
+  --accent-secondary: #ff6b00;
+  --accent-info: #00d4ff;
+  --accent-error: #ff3333;
+  --accent-purple: #b388ff;
+  --accent-success: #00ff41;
+
+  /* Utility Colors */
+  --text-muted: #5c4a1f;
+  --border-color: #3d3215;
+  --glow: rgba(255, 176, 0, 0.15);
+
+  /* Typography */
+  --font-mono: 'IBM Plex Mono', 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Base Panel */
+.panel {
+  background: var(--bg-secondary);
+  padding: 16px;
+  overflow: hidden;
+}
+
+.panel-header {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+}
+
+.panel-header::before {
+  content: '>';
+  color: var(--accent-primary);
+}
+
+/* Team Status Panel */
+.team-status-panel {
+  font-family: var(--font-mono);
+}
+
+/* Kanban Board Panel */
+.kanban-board-panel {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+}
+
+.team-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-card .name {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.status-badge.active { color: var(--accent-primary); }
+.status-badge.idle { color: var(--text-muted); }
+.status-badge.building { color: var(--accent-secondary); }
+.status-badge.waiting { color: var(--accent-info); }
+.status-badge.error { color: var(--accent-error); }
+
+/* Kanban Board */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.kanban-column {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.column-header {
+  padding: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.column-header .count {
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.column-tasks {
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Task Card */
+.task-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--glow);
+  transform: translateY(-1px);
+}
+
+.task-card .id {
+  color: var(--accent-info);
+  font-size: 10px;
+}
+
+.task-card .title {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.task-card .priority {
+  margin-top: 6px;
+  font-size: 9px;
+}
+
+.task-card .priority.high { color: var(--accent-secondary); }
+.task-card .priority.medium { color: var(--accent-info); }
+.task-card .priority.low { color: var(--text-muted); }
+
+.task-card.blocked {
+  border-color: var(--accent-secondary);
+}
+
+.task-card.done {
+  opacity: 0.5;
+}
+
+.task-card.done .title {
+  text-decoration: line-through;
+}

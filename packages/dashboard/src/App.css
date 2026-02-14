@@ -1,0 +1,173 @@
+/* App Layout */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: var(--bg-primary);
+  color: var(--accent-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  animation: scanlines 8s linear infinite;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+  opacity: 0.5;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px var(--accent-primary);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.header-controls {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.header-controls span {
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.header-controls span:hover {
+  opacity: 1;
+}
+
+.header-controls .active {
+  color: var(--accent-primary);
+  opacity: 1;
+}
+
+/* Main Layout */
+.main-container {
+  display: grid;
+  grid-template-columns: 300px 1fr 350px;
+  grid-template-rows: auto 1fr auto;
+  flex: 1;
+  gap: 1px;
+  background: var(--border-color);
+}
+
+/* Override panels */
+.main-container .panel {
+  background: var(--bg-secondary);
+}
+
+/* Launcher Panel */
+.launcher-panel {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+/* Feed Panel */
+.feed-panel {
+  grid-column: 1;
+  grid-row: 3;
+  max-height: 200px;
+}
+
+/* Kanban Panel */
+.kanban-panel {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 16px 16px;
+}
+
+/* Team Panel */
+.team-panel {
+  grid-column: 3;
+  grid-row: 1 / 4;
+}
+
+/* Progress Block */
+.progress-block .bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  margin-top: 8px;
+}
+
+.progress-block .fill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
+}
+
+/* Footer */
+.footer {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  padding: 8px 24px;
+  font-size: 11px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.footer span {
+  opacity: 0.7;
+}

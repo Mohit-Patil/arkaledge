@@ -1,0 +1,68 @@
+/* Terminal Design - Typography */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-mono: 'IBM Plex Mono', 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Typography Scale */
+.font-h1 {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.font-h2 {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.font-body {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--accent-primary);
+}
+
+.font-code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--accent-primary);
+}
+
+.font-small {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.font-ascii {
+  font-family: 'Courier New', monospace;
+  font-size: 8px;
+  font-weight: 400;
+  color: var(--accent-primary);
+  opacity: 0.3;
+}
+
+/* Text Effects */
+.text-glow {
+  text-shadow: 0 0 10px var(--accent-primary);
+}
+
+.text-glow-strong {
+  text-shadow: 0 0 10px var(--accent-primary), 0 0 20px var(--accent-primary);
+}
+
+/* Agent Color Classes */
+.text-pm { color: var(--accent-info); }
+.text-sm { color: var(--accent-secondary); }
+.text-eng { color: var(--accent-primary); }
+.text-rev { color: var(--accent-purple); }
+.text-error { color: var(--accent-error); }
+.text-success { color: var(--accent-success); }

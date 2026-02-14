@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import {
   createAgentRuntime,
+  createApiServer,
+  KanbanManager,
   loadConfig,
   globalEventBus,
   Orchestrator,
@@ -52,9 +54,16 @@ async function main(): Promise<void> {
 
     const orchestrator = new Orchestrator(config, outputDir);
 
+    // Start Dashboard API server
+    const kanban = new KanbanManager(outputDir, globalEventBus);
+    await kanban.init();
+    const apiServer = createApiServer({ kanban, eventBus: globalEventBus, port: 4400 });
+    console.log('📡 Dashboard API: http://localhost:4400');
+
     // Graceful shutdown
     const shutdown = () => {
       console.log("\n🛑 Shutting down...");
+      apiServer.close();
       orchestrator.stop().then(() => process.exit(0));
     };
     process.on("SIGINT", shutdown);

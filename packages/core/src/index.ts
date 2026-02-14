@@ -45,6 +45,9 @@ export { loadPlugins } from "./plugins/plugin-loader.js";
 export { KanbanManager } from "./kanban.js";
 export { WorktreeManager } from "./worktree-manager.js";
 
+// API Server
+export { createApiServer, type ApiServerOptions } from "./api-server.js";
+
 // Orchestration
 export { Orchestrator } from "./orchestrator.js";
 export { FailureHandler } from "./failure-handler.js";

@@ -35,7 +35,12 @@ module.exports = [
         AbortSignal: 'readonly',
         document: 'readonly',
         HTMLDivElement: 'readonly',
-        HTMLElement: 'readonly'
+        HTMLElement: 'readonly',
+        fetch: 'readonly',
+        EventSource: 'readonly',
+        URL: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly'
       }
     },
     plugins: {

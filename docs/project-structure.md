@@ -13,6 +13,7 @@ arkaledge/
 |   |   |   |-- orchestrator.ts         # Main orchestration loop (Phase 2)
 |   |   |   |-- kanban.ts               # Kanban state manager (Phase 2)
 |   |   |   |-- worktree-manager.ts     # Git worktree lifecycle (Phase 3)
+|   |   |   |-- api-server.ts            # HTTP API server (REST + SSE)
 |   |   |   |-- event-bus.ts            # In-process event emitter
 |   |   |   |-- failure-handler.ts      # Retry/reassign/kill pipeline (Phase 2)
 |   |   |   |-- config-loader.ts        # Load & validate YAML configs
@@ -32,15 +33,14 @@ arkaledge/
 |   |   |   |   |-- plugin-types.ts     # Plugin interface definitions
 |   |   |-- package.json
 |   |   |-- tsconfig.json
-|   |-- dashboard/                # Web UI prototype - Vite + React (Phase 4 integration pending)
+|   |-- dashboard/                # Web UI - Vite + React, wired to live API
 |   |   |-- src/
-|   |   |   |-- App.tsx
+|   |   |   |-- App.tsx                # Main app with live kanban, feed, team status
 |   |   |   |-- main.tsx
-|   |   |   |-- components/
-|   |   |   |   |-- ProjectLauncher.tsx
-|   |   |   |   |-- ActivityFeed.tsx
-|   |   |   |   |-- KanbanBoard.tsx
-|   |   |   |   |-- TeamStatus.tsx
+|   |   |   |-- types.ts              # Browser-side type definitions
+|   |   |   |-- hooks/
+|   |   |   |   |-- useApi.ts         # REST + SSE hook (EventSource + fetch)
+|   |   |   |-- components/           # Legacy components (unused, kept for reference)
 |   |   |   |-- styles/
 |   |   |       |-- colors.css
 |   |   |       |-- typography.css
@@ -73,5 +73,5 @@ arkaledge/
 
 - `@arkaledge/core` is the foundational package with zero internal dependencies
 - `@arkaledge/cli` provides the command-line interface, depends on core
-- `@arkaledge/dashboard` currently provides a prototype UI, depends on core types
+- `@arkaledge/dashboard` provides a read-only live dashboard, connects to core API server via REST + SSE
 - External SDK packages (`claude-agent-sdk`, `codex-sdk`) are optional peer dependencies, dynamically imported at runtime

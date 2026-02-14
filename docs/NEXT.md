@@ -1,17 +1,21 @@
-# Next: Phase 3.5/4 — PM Completeness Loop + Live Dashboard
+# Next: PM Completeness Loop + Phase 5 Plugins
 
 ## Status
 
-Phase 1 (Core Agent Abstraction), Phase 2 (Multi-Agent Orchestration + Kanban), and Phase 3 (Git Worktrees + PR review flow) are complete.
+Phases 1-4 are complete:
 
-Implemented in Phase 3:
+- **Phase 1**: Core Agent Abstraction (CLI, runtimes, event bus)
+- **Phase 2**: Multi-Agent Orchestration + Kanban (PM, SM, Engineers, Reviewer)
+- **Phase 3**: Git Worktrees + PR Review Flow (isolation, diffs, merge)
+- **Phase 4**: Web Dashboard (read-only live dashboard with REST + SSE)
 
-- `WorktreeManager` for per-task worktree lifecycle
-- Engineer execution in task worktrees
-- Required task-branch commit before review
-- Reviewer diff-driven review prompt (`main...branch`)
-- Approval flow that merges to `main` and removes task worktree
-- Scrum Master worktree provisioning and auto-approval merge path
+Phase 4 delivered:
+- `packages/core/src/api-server.ts` — `node:http` API server (zero deps)
+- `GET /api/tasks` (REST) and `GET /api/events` (SSE stream)
+- CLI starts API server on port 4400 alongside orchestrator
+- Dashboard wired to live data via `useApi` hook (EventSource + fetch)
+- Live kanban board, agent feed, team status, sprint progress
+- Husky pre-commit hook running lint + typecheck
 
 ## What Is Next
 
@@ -23,44 +27,45 @@ After Scrum Master reaches completion, PM should re-read delivered output and de
 - If gaps found: append backlog tasks and re-enter Scrum Master loop
 - If no gaps: emit final `project:completed`
 
-### 2. Phase 4 Dashboard Integration
+### 2. Dashboard Enhancements (Optional)
 
-Current `packages/dashboard` is a Vite + React UI prototype. Next step is real-time runtime integration.
+The dashboard is functional but could be improved:
 
-- Backend API endpoint to launch orchestration runs
-- Event stream endpoint for `EventBus` messages
-- Live task/kanban polling or streaming from `.arkaledge/kanban.json`
-- Project detail view wired to real project state (not mock data)
+- Expandable reasoning (summary vs detail toggle per event)
+- Task detail modal (show description, acceptance criteria, history)
+- Responsive layout for tablet/mobile
+- Dark/light theme toggle (currently dark-only)
 
-### 3. Phase 5 Plugin Runtime Wiring
+### 3. Phase 5: Plugin System + Extensibility
 
 Plugin discovery/loading exists, but runtime wiring is still pending.
 
 - Inject plugin tools into agent runs
 - Trigger plugin lifecycle hooks (`onProjectStart`, `onTaskComplete`, `onProjectComplete`)
 - Add example plugin execution path in end-to-end orchestration
+- Example plugins: deploy-vercel, run-playwright
 
 ## Verification Targets
 
 ```bash
-# Core + CLI compile
-cd packages/core && npm run build
-cd ../cli && npm run build
+# Full build + lint + typecheck
+npm run build
+npm run lint
+npm run typecheck
 
-# Team orchestration smoke run (requires SDK keys)
+# Team orchestration (requires SDK keys)
 node packages/cli/dist/index.js run \
   --spec ./spec.md \
   --config examples/team-config.yaml \
   --output /tmp/test-project
+
+# Dashboard dev server (while orchestrator runs)
+cd packages/dashboard && npm run dev
+# Open http://localhost:3000
 ```
 
-Expected currently:
-
+Expected:
 - Engineers run in isolated task worktrees
 - Reviewer evaluates branch diff and merges approved work to `main`
-- Worktrees are removed after approval
-
-Expected after next phase:
-
-- PM can generate follow-up tasks after initial "done" pass
-- Dashboard shows real-time project state from orchestrator events
+- Dashboard shows real-time kanban updates and agent activity
+- API server streams events via SSE on port 4400

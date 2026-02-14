@@ -34,6 +34,7 @@ See [docs/architecture.md](docs/architecture.md) for full details.
 | `packages/core/src/kanban.ts` | Task state management |
 | `packages/core/src/agents/` | SDK adapters (claude-runtime.ts, codex-runtime.ts) |
 | `packages/core/src/roles/` | Agent behaviors (pm, sm, engineer, reviewer) |
+| `packages/core/src/api-server.ts` | HTTP API server (REST + SSE) |
 | `packages/core/src/types.ts` | TypeScript interfaces + Zod schemas |
 
 ## Agent Roles
@@ -79,8 +80,8 @@ See [docs/interfaces.md](docs/interfaces.md) for all TypeScript definitions.
 | Phase | Status |
 |-------|--------|
 | 1-2 | Complete |
-| 3 (Worktrees) | In Progress |
-| 4 (Dashboard) | Planned |
+| 3 (Worktrees) | Complete |
+| 4 (Dashboard) | Complete |
 | 5 (Plugins) | Planned |
 
 ## Deep Dives

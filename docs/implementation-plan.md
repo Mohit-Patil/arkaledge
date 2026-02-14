@@ -51,19 +51,30 @@
 
 ---
 
-## Phase 4: Web Dashboard
+## Phase 4: Web Dashboard (Complete)
 
-**Goal**: Real-time web UI showing agent activity.
+**Goal**: Real-time read-only web UI showing agent activity.
 
 - [x] Dashboard UI prototype setup in `packages/dashboard` (Vite + React)
-- [ ] SSE endpoint (`/api/events`) streaming from EventBus
-- [ ] Launch page: spec input + team config
-- [ ] Project view: agent cards + log streams
-- [ ] Expandable reasoning (summary vs detail toggle)
-- [ ] Mini Kanban board visualization
-- [ ] Wire dashboard to orchestrator API
+- [x] API server module in `packages/core/src/api-server.ts` (`node:http`, zero deps)
+- [x] REST endpoint: `GET /api/tasks` returns kanban state
+- [x] SSE endpoint: `GET /api/events` streams EventBus events in real-time
+- [x] CORS support for cross-origin dashboard access
+- [x] CLI starts API server alongside orchestrator on port 4400
+- [x] Dashboard `useApi` hook with EventSource + REST fetch
+- [x] Live Kanban board (backlog → in_progress → review → done)
+- [x] Real-time Agent Feed showing agent discussions/actions
+- [x] Team Status panel derived from live events
+- [x] Sprint Progress bar (done/total tasks)
+- [x] Connection status indicator (connected/disconnected)
+- [x] Vite dev proxy for `/api` routes
+- [x] Husky pre-commit hook (lint + typecheck)
 
-**Verification**: Start a project from the dashboard, watch agents work in real-time, see tasks flow through Kanban.
+**Not included (read-only dashboard):**
+- Launch page / spec input (dashboard is read-only, orchestrator started via CLI)
+- Expandable reasoning detail toggle (future enhancement)
+
+**Verification**: Start orchestrator with `--spec`, open dashboard at `localhost:3000`, watch agents work in real-time with tasks flowing through Kanban.
 
 ---
 

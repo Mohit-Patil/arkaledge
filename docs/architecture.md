@@ -25,7 +25,8 @@ User --> CLI / Dashboard (prototype) --> Orchestrator --> Agent Pool
 | **Kanban State** | JSON file (`kanban.json`) tracking all tasks and their status |
 | **Git Worktrees** | Isolated working directories per engineer for parallel development |
 | **Event Bus** | In-process event emitter for real-time observability |
-| **Web Dashboard (Prototype)** | Vite + React UI currently using static/mock data (Phase 4 will wire live APIs/events) |
+| **API Server** | `node:http` server exposing REST (`/api/tasks`) and SSE (`/api/events`) endpoints for dashboard integration |
+| **Web Dashboard** | Vite + React read-only UI wired to live API data via EventSource + REST fetch |
 
 ## SDK Abstraction
 
@@ -38,7 +39,7 @@ This allows mixing models and SDKs within the same team. An engineer can be powe
 
 ## Data Flow
 
-1. User submits a product spec via CLI (dashboard launch wiring is Phase 4)
+1. User submits a product spec via CLI
 2. Orchestrator initializes a project directory with git
 3. PM agent reads the spec and creates tasks in `kanban.json`
 4. Scrum Master monitors Kanban state in a loop:
@@ -63,7 +64,7 @@ PM completeness re-check loop is planned next (see `docs/NEXT.md`).
 - Each engineer works in an isolated git worktree
 - Kanban state uses file-level locking via `proper-lockfile`
 - The orchestrator is single-threaded (Node.js event loop) but agents run concurrently via async iterables
-- Events are emitted asynchronously; dashboard SSE streaming is planned for Phase 4
+- Events are emitted asynchronously and streamed to the dashboard via SSE (`/api/events`)
 
 ## Failure Handling
 

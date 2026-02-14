@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arkaledge - Modern SaaS Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #fafbfc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f4f5f7;
+      --accent-primary: #6366f1;
+      --accent-secondary: #8b5cf6;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-error: #ef4444;
+      --accent-info: #0ea5e9;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-tertiary);
+    }
+
+    /* Main Layout */
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 24px;
+      padding: 24px 32px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-header {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* Project Launcher Card */
+    .launcher-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .launcher-input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .launcher-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Team Status */
+    .team-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .team-member {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+
+    .team-member:hover {
+      background: var(--bg-primary);
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .avatar.pm { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+    .avatar.sm { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .avatar.eng { background: linear-gradient(135deg, #10b981, #059669); }
+    .avatar.rev { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+    .member-info {
+      flex: 1;
+    }
+
+    .member-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .member-status {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.active { background: #d1fae5; color: #065f46; }
+    .status-badge.idle { background: #f1f5f9; color: #64748b; }
+    .status-badge.working { background: #fef3c7; color: #92400e; }
+
+    /* Kanban Board */
+    .kanban-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kanban-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .kanban-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      flex: 1;
+    }
+
+    .kanban-column {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 400px;
+    }
+
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .column-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .column-count {
+      background: var(--bg-secondary);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .task-card {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--accent-primary);
+    }
+
+    .task-id {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent-primary);
+      margin-bottom: 6px;
+    }
+
+    .task-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    .task-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .task-priority {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .task-priority.high { background: #fee2e2; color: #dc2626; }
+    .task-priority.medium { background: #fef3c7; color: #d97706; }
+    .task-priority.low { background: #d1fae5; color: #059669; }
+
+    .task-assignee {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #059669);
+      font-size: 10px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Right Panel */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Activity Feed */
+    .activity-feed {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .activity-content {
+      flex: 1;
+    }
+
+    .activity-text {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    .activity-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Task Detail */
+    .task-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .task-detail-id {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-primary);
+    }
+
+    .task-detail-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .detail-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .detail-value {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    /* Progress Bar */
+    .progress-section {
+      margin-top: 16px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .progress-value {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: var(--bg-tertiary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* Subtasks */
+    .subtasks-section {
+      margin-top: 20px;
+    }
+
+    .subtask-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+
+    .subtask-check {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: white;
+    }
+
+    .subtask-check.checked {
+      background: var(--accent-success);
+      border-color: var(--accent-success);
+    }
+
+    .subtask-text {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .subtask-text.done {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+
+    .action-btn:hover {
+      background: var(--bg-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      <span>Arkaledge</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary">Documentation</button>
+      <button class="btn-primary">
+        <span>+</span> New Project
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+      <!-- Project Launcher -->
+      <div class="card">
+        <div class="card-header">Launch Project</div>
+        <input type="text" class="launcher-input" placeholder="Specification file..." value="spec_file.md">
+        <input type="text" class="launcher-input" placeholder="Config file..." value="config.yaml">
+        <button class="btn-primary" style="width: 100%; justify-content: center;">
+          Launch Project
+        </button>
+      </div>
+
+      <!-- Team Status -->
+      <div class="card">
+        <div class="card-header">Team</div>
+        <div class="team-list">
+          <div class="team-member">
+            <div class="avatar pm">PM</div>
+            <div class="member-info">
+              <div class="member-name">Product Manager</div>
+              <div class="member-status">Analyzing requirements</div>
+            </div>
+            <span class="status-badge active">Active</span>
+          </div>
+          <div class="team-member">
+            <div class="avatar sm">SM</div>
+            <div class="member-info">
+              <div class="member-name">Scrum Master</div>
+              <div class="member-status">Assigning tasks</div>
+            </div>
+            <span class="status-badge active">Active</span>
+          </div>
+          <div class="team-member">
+            <div class="avatar eng">E1</div>
+            <div class="member-info">
+              <div class="member-name">Engineer 1</div>
+              <div class="member-status">Implementing Task #42</div>
+            </div>
+            <span class="status-badge working">Working</span>
+          </div>
+          <div class="team-member">
+            <div class="avatar eng">E2</div>
+            <div class="member-info">
+              <div class="member-name">Engineer 2</div>
+              <div class="member-status">Waiting</div>
+            </div>
+            <span class="status-badge idle">Idle</span>
+          </div>
+          <div class="team-member">
+            <div class="avatar rev">R</div>
+            <div class="member-info">
+              <div class="member-name">Reviewer</div>
+              <div class="member-status">2 pending reviews</div>
+            </div>
+            <span class="status-badge active">Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="kanban-section">
+      <div class="kanban-header">
+        <h2 class="kanban-title">Project Tasks</h2>
+        <button class="btn-secondary">+ Add Task</button>
+      </div>
+      <div class="kanban-board">
+        <div class="kanban-column">
+          <div class="column-header">
+            <span class="column-title">Backlog</span>
+            <span class="column-count">12</span>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-051</div>
+            <div class="task-title">Implement user dashboard</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">E1</div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-050</div>
+            <div class="task-title">Add API rate limiting</div>
+            <div class="task-meta">
+              <span class="task-priority medium">Medium</span>
+              <div class="task-assignee">E2</div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-049</div>
+            <div class="task-title">Fix memory leak in worker</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">?</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban-column">
+          <div class="column-header">
+            <span class="column-title">In Progress</span>
+            <span class="column-count">3</span>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-042</div>
+            <div class="task-title">Implement auth middleware</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">E1</div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-041</div>
+            <div class="task-title">Setup CI/CD pipeline</div>
+            <div class="task-meta">
+              <span class="task-priority medium">Medium</span>
+              <div class="task-assignee">E2</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban-column">
+          <div class="column-header">
+            <span class="column-title">Review</span>
+            <span class="column-count">2</span>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-039</div>
+            <div class="task-title">Database schema v2</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">R</div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-id">TASK-038</div>
+            <div class="task-title">Refactor utils module</div>
+            <div class="task-meta">
+              <span class="task-priority low">Low</span>
+              <div class="task-assignee">R</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban-column">
+          <div class="column-header">
+            <span class="column-title">Done</span>
+            <span class="column-count">28</span>
+          </div>
+          <div class="task-card" style="opacity: 0.7;">
+            <div class="task-id">TASK-001</div>
+            <div class="task-title">Project setup</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">✓</div>
+            </div>
+          </div>
+          <div class="task-card" style="opacity: 0.7;">
+            <div class="task-id">TASK-002</div>
+            <div class="task-title">Auth service</div>
+            <div class="task-meta">
+              <span class="task-priority high">High</span>
+              <div class="task-assignee">✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <!-- Activity Feed -->
+      <div class="card">
+        <div class="card-header">Activity</div>
+        <div class="activity-feed">
+          <div class="activity-item">
+            <div class="activity-icon" style="background: #dbeafe; color: #2563eb;">PM</div>
+            <div class="activity-content">
+              <div class="activity-text">Breaking down spec into tasks...</div>
+              <div class="activity-time">2 minutes ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background: #fef3c7; color: #d97706;">SM</div>
+            <div class="activity-content">
+              <div class="activity-text">Task #42 assigned to ENGINEER-1</div>
+              <div class="activity-time">2 minutes ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background: #d1fae5; color: #059669;">E1</div>
+            <div class="activity-content">
+              <div class="activity-text">Starting worktree feature/auth</div>
+              <div class="activity-time">1 minute ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background: #dbeafe; color: #2563eb;">PM</div>
+            <div class="activity-content">
+              <div class="activity-text">Created 5 sub-tasks</div>
+              <div class="activity-time">1 minute ago</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon" style="background: #ede9fe; color: #7c3aed;">R</div>
+            <div class="activity-content">
+              <div class="activity-text">Review requested for Task #39</div>
+              <div class="activity-time">Just now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Detail -->
+      <div class="card">
+        <div class="task-detail-header">
+          <div>
+            <div class="task-detail-id">TASK-042</div>
+            <div class="task-detail-title">Implement auth middleware</div>
+          </div>
+          <span class="status-badge working">In Progress</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Priority</span>
+          <span class="detail-value" style="color: #dc2626;">High</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Assigned to</span>
+          <span class="detail-value">Engineer 1</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Estimated</span>
+          <span class="detail-value">2h 15m</span>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-header">
+            <span class="progress-label">Progress</span>
+            <span class="progress-value">65%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: 65%;"></div>
+          </div>
+        </div>
+
+        <div class="subtasks-section">
+          <div class="card-header">Subtasks</div>
+          <div class="subtask-item">
+            <div class="subtask-check checked">✓</div>
+            <div class="subtask-text done">Database schema for sessions</div>
+          </div>
+          <div class="subtask-item">
+            <div class="subtask-check checked">✓</div>
+            <div class="subtask-text done">JWT token generation</div>
+          </div>
+          <div class="subtask-item">
+            <div class="subtask-check"></div>
+            <div class="subtask-text">Refresh token rotation</div>
+          </div>
+          <div class="subtask-item">
+            <div class="subtask-check"></div>
+            <div class="subtask-text">Logout endpoint</div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="action-btn">Reassign</button>
+          <button class="action-btn">Block</button>
+          <button class="action-btn">View</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arkaledge - Mission Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #030712;
+      --bg-space: #0a0e17;
+      --bg-panel: #111827;
+      --bg-card: #1a2332;
+      --accent-cyan: #06b6d4;
+      --accent-purple: #a855f7;
+      --accent-teal: #14b8a6;
+      --accent-orange: #f97316;
+      --accent-red: #ef4444;
+      --accent-green: #22c55e;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --glow-cyan: rgba(6, 182, 212, 0.4);
+      --glow-purple: rgba(168, 85, 247, 0.4);
+      --border-glow: rgba(6, 182, 212, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse at 20% 30%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(20, 184, 166, 0.04) 0%, transparent 70%);
+    }
+
+    /* Starfield effect */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        radial-gradient(1px 1px at 20px 30px, white, transparent),
+        radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.6), transparent),
+        radial-gradient(1px 1px at 130px 80px, white, transparent),
+        radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.7), transparent),
+        radial-gradient(2px 2px at 200px 50px, rgba(6, 182, 212, 0.8), transparent),
+        radial-gradient(1px 1px at 250px 160px, white, transparent),
+        radial-gradient(1px 1px at 300px 90px, rgba(255,255,255,0.5), transparent),
+        radial-gradient(2px 2px at 400px 200px, rgba(168, 85, 247, 0.6), transparent),
+        radial-gradient(1px 1px at 500px 150px, white, transparent);
+      background-size: 600px 300px;
+      animation: twinkle 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 320px 1fr 360px;
+      grid-template-rows: 70px 1fr 60px;
+      gap: 16px;
+      padding: 16px;
+      height: 100vh;
+    }
+
+    /* Header - Mission Control */
+    .header {
+      grid-column: 1 / 4;
+      background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-space) 100%);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 32px;
+      box-shadow:
+        0 0 30px rgba(6, 182, 212, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      box-shadow: 0 0 20px var(--glow-cyan);
+    }
+
+    .logo-text {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-teal));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .mission-status {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 5px var(--accent-green); }
+      50% { box-shadow: 0 0 15px var(--accent-green), 0 0 25px var(--accent-green); }
+    }
+
+    /* Panel Base Styles */
+    .panel {
+      background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-space) 100%);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow:
+        0 0 30px rgba(6, 182, 212, 0.05),
+        inset 0 1px 0 rgba(255,255,255,0.03);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+      opacity: 0.5;
+    }
+
+    .panel-header {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent-cyan);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-header::before {
+      content: '◆';
+      font-size: 8px;
+    }
+
+    /* Crew Console - Team Status */
+    .crew-console {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .crew-member {
+      background: var(--bg-card);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .crew-member:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    }
+
+    .crew-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .crew-name {
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .crew-status {
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .crew-status.active { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
+    .crew-status.working { background: rgba(249, 115, 22, 0.2); color: var(--accent-orange); }
+    .crew-status.idle { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+
+    .crew-activity {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .crew-progress {
+      margin-top: 10px;
+      height: 3px;
+      background: var(--bg-space);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .crew-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-teal));
+      border-radius: 2px;
+    }
+
+    /* Mission Display - Kanban */
+    .mission-display {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kanban-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex: 1;
+    }
+
+    .tactical-column {
+      background: var(--bg-card);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tactical-header {
+      padding: 12px;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tactical-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+    }
+
+    .tactical-count {
+      font-size: 11px;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .tactical-tasks {
+      padding: 8px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .mission-card {
+      background: var(--bg-space);
+      border: 1px solid rgba(6, 182, 212, 0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mission-card:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.1);
+    }
+
+    .mission-card.selected {
+      border-color: var(--accent-cyan);
+      background: rgba(6, 182, 212, 0.1);
+    }
+
+    .mission-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--accent-cyan);
+      margin-bottom: 4px;
+    }
+
+    .mission-title {
+      font-size: 12px;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    .mission-priority {
+      font-size: 9px;
+      margin-top: 6px;
+      color: var(--accent-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Right Panel */
+    .ops-panel {
+      grid-column: 3;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Mission Log */
+    .mission-log {
+      flex: 1;
+    }
+
+    .log-entry {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.1);
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      min-width: 60px;
+    }
+
+    .log-source {
+      color: var(--accent-cyan);
+      min-width: 35px;
+    }
+
+    .log-source.pm { color: var(--accent-teal); }
+    .log-source.sm { color: var(--accent-orange); }
+    .log-source.eng { color: var(--accent-green); }
+    .log-source.rev { color: var(--accent-purple); }
+
+    .log-text {
+      color: var(--text-secondary);
+    }
+
+    /* Operation Briefing - Task Detail */
+    .op-briefing {
+      flex: 1;
+    }
+
+    .briefing-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent-cyan);
+      margin-bottom: 4px;
+    }
+
+    .briefing-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .briefing-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.1);
+      font-size: 12px;
+    }
+
+    .briefing-label {
+      color: var(--text-muted);
+    }
+
+    .briefing-value {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .briefing-value.status {
+      color: var(--accent-orange);
+    }
+
+    .progress-section {
+      margin-top: 16px;
+    }
+
+    .progress-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--bg-space);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 3px;
+      box-shadow: 0 0 10px var(--glow-cyan);
+    }
+
+    /* Launch Control */
+    .launch-control {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    .launch-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+
+    .launch-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+    }
+
+    .launch-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 20px var(--glow-cyan);
+    }
+
+    .launch-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px var(--glow-cyan), 0 0 50px var(--glow-purple);
+    }
+
+    /* Footer */
+    .footer {
+      grid-column: 2 / 4;
+      grid-row: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .footer-stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-value {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .footer-connection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .connection-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-section">
+        <div class="logo-icon">A</div>
+        <div class="logo-text">ARKALEDGE</div>
+      </div>
+      <div class="mission-status">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span>Mission Active</span>
+        </div>
+        <div class="status-indicator">
+          <span style="color: var(--text-muted);">UPTIME:</span>
+          <span>04:23:15</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Crew Console - Team -->
+    <div class="panel crew-console">
+      <div class="panel-header">Crew Console</div>
+
+      <div class="crew-member">
+        <div class="crew-header">
+          <div class="crew-name">▸ PM-Agent</div>
+          <span class="crew-status active">Active</span>
+        </div>
+        <div class="crew-activity">Analyzing requirements</div>
+      </div>
+
+      <div class="crew-member">
+        <div class="crew-header">
+          <div class="crew-name">▸ SM-Agent</div>
+          <span class="crew-status active">Active</span>
+        </div>
+        <div class="crew-activity">Assigning tasks</div>
+      </div>
+
+      <div class="crew-member">
+        <div class="crew-header">
+          <div class="crew-name">▸ Engineer-1</div>
+          <span class="crew-status working">Working</span>
+        </div>
+        <div class="crew-activity">Implementing Task #42</div>
+        <div class="crew-progress">
+          <div class="crew-progress-fill" style="width: 65%;"></div>
+        </div>
+      </div>
+
+      <div class="crew-member">
+        <div class="crew-header">
+          <div class="crew-name">▸ Engineer-2</div>
+          <span class="crew-status idle">Idle</span>
+        </div>
+        <div class="crew-activity">Awaiting assignment</div>
+      </div>
+
+      <div class="crew-member">
+        <div class="crew-header">
+          <div class="crew-name">▸ Reviewer</div>
+          <span class="crew-status active">Active</span>
+        </div>
+        <div class="crew-activity">2 pending reviews</div>
+      </div>
+    </div>
+
+    <!-- Mission Display - Kanban -->
+    <div class="panel mission-display">
+      <div class="panel-header">Tactical Display</div>
+      <div class="kanban-grid">
+        <div class="tactical-column">
+          <div class="tactical-header">
+            <span class="tactical-title">Backlog</span>
+            <span class="tactical-count">[12]</span>
+          </div>
+          <div class="tactical-tasks">
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-051</div>
+              <div class="mission-title">Implement user dashboard</div>
+              <div class="mission-priority">◉ High Priority</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-050</div>
+              <div class="mission-title">Add API rate limiting</div>
+              <div class="mission-priority">○ Medium Priority</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-049</div>
+              <div class="mission-title">Fix memory leak in worker</div>
+              <div class="mission-priority">◉ High Priority</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tactical-column">
+          <div class="tactical-header">
+            <span class="tactical-title">In Progress</span>
+            <span class="tactical-count">[3]</span>
+          </div>
+          <div class="tactical-tasks">
+            <div class="mission-card selected">
+              <div class="mission-id">// MISSION-042</div>
+              <div class="mission-title">Implement auth middleware</div>
+              <div class="mission-priority">◉ High Priority</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-041</div>
+              <div class="mission-title">Setup CI/CD pipeline</div>
+              <div class="mission-priority">○ Medium Priority</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tactical-column">
+          <div class="tactical-header">
+            <span class="tactical-title">Review</span>
+            <span class="tactical-count">[2]</span>
+          </div>
+          <div class="tactical-tasks">
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-039</div>
+              <div class="mission-title">Database schema v2</div>
+              <div class="mission-priority">◉ High Priority</div>
+            </div>
+            <div class="mission-card">
+              <div class="mission-id">// MISSION-038</div>
+              <div class="mission-title">Refactor utils module</div>
+              <div class="mission-priority">○ Low Priority</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tactical-column">
+          <div class="tactical-header">
+            <span class="tactical-title">Complete</span>
+            <span class="tactical-count">[28]</span>
+          </div>
+          <div class="tactical-tasks">
+            <div class="mission-card" style="opacity: 0.6;">
+              <div class="mission-id">// MISSION-001</div>
+              <div class="mission-title">Project setup</div>
+              <div class="mission-priority" style="color: var(--accent-green);">✓ Complete</div>
+            </div>
+            <div class="mission-card" style="opacity: 0.6;">
+              <div class="mission-id">// MISSION-002</div>
+              <div class="mission-title">Auth service</div>
+              <div class="mission-priority" style="color: var(--accent-green);">✓ Complete</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operations Panel -->
+    <div class="ops-panel">
+      <!-- Launch Control -->
+      <div class="panel">
+        <div class="panel-header">Launch Control</div>
+        <input type="text" class="launch-input" value="spec_file.md" placeholder="Specification...">
+        <input type="text" class="launch-input" value="config.yaml" placeholder="Config...">
+        <button class="launch-btn">▶ INITIATE MISSION</button>
+      </div>
+
+      <!-- Mission Log -->
+      <div class="panel mission-log">
+        <div class="panel-header">Mission Log</div>
+        <div class="log-entry">
+          <span class="log-time">14:32:01</span>
+          <span class="log-source pm">PM</span>
+          <span class="log-text">Breaking down spec into tasks...</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:32:02</span>
+          <span class="log-source sm">SM</span>
+          <span class="log-text">Task #42 assigned to ENGINEER-1</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:32:03</span>
+          <span class="log-source eng">E1</span>
+          <span class="log-text">Starting worktree feature/auth</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:32:04</span>
+          <span class="log-source pm">PM</span>
+          <span class="log-text">Created 5 sub-tasks</span>
+        </div>
+        <div class="log-entry">
+          <span class="log-time">14:32:05</span>
+          <span class="log-source rev">R</span>
+          <span class="log-text">Review requested for Task #39</span>
+        </div>
+      </div>
+
+      <!-- Operation Briefing -->
+      <div class="panel op-briefing">
+        <div class="panel-header">Operation Briefing</div>
+        <div class="briefing-id">// MISSION-042</div>
+        <div class="briefing-title">Implement auth middleware</div>
+
+        <div class="briefing-row">
+          <span class="briefing-label">Status</span>
+          <span class="briefing-value status">IN PROGRESS</span>
+        </div>
+        <div class="briefing-row">
+          <span class="briefing-label">Priority</span>
+          <span class="briefing-value" style="color: var(--accent-orange);">HIGH</span>
+        </div>
+        <div class="briefing-row">
+          <span class="briefing-label">Assignee</span>
+          <span class="briefing-value">Engineer-1</span>
+        </div>
+        <div class="briefing-row">
+          <span class="briefing-label">Estimated</span>
+          <span class="briefing-value">2h 15m</span>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span>65%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="width: 65%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-stats">
+        <div class="stat">
+          <span>BACKLOG:</span>
+          <span class="stat-value">12</span>
+        </div>
+        <div class="stat">
+          <span>ACTIVE:</span>
+          <span class="stat-value">3</span>
+        </div>
+        <div class="stat">
+          <span>COMPLETE:</span>
+          <span class="stat-value">28</span>
+        </div>
+      </div>
+      <div class="footer-connection">
+        <span class="connection-dot"></span>
+        <span>Systems Nominal</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

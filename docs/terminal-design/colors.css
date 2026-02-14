@@ -1,0 +1,24 @@
+/* Terminal Design - Color Variables */
+
+:root {
+  /* Core Backgrounds */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #0d1117;
+  --bg-tertiary: #161b22;
+
+  /* Accent Colors */
+  --accent-primary: #00ff41;
+  --accent-secondary: #ffb000;
+  --accent-info: #00d4ff;
+  --accent-error: #ff3333;
+  --accent-purple: #b388ff;
+  --accent-success: #00ff41;
+
+  /* Utility Colors */
+  --text-muted: #0f5132;
+  --border-color: #1a3a2a;
+  --glow: rgba(0, 255, 65, 0.15);
+
+  /* Typography */
+  --font-mono: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+}

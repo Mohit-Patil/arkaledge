@@ -17,15 +17,19 @@
     "check:sdk": "npm run install:sdk-peers && npm run check:sdk-contracts"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
-    "eslint": "^9.39.2",
+    "@vitejs/plugin-react": "^5.1.4",
+    "eslint": "^9.0.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "turbo": "^2",
-    "typescript": "^5.7"
+    "turbo": "^2.8.8",
+    "typescript": "^5.7",
+    "vite": "^7.3.1"
   },
   "packageManager": "npm@10.9.2",
   "engines": {

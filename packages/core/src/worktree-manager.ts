@@ -77,6 +77,7 @@ export class WorktreeManager {
   async mergeToMain(branchName: string): Promise<void> {
     return this.withQueue(async () => {
       await this.ensureRepositoryReady();
+      await this.assertNoLocalMergeConflicts(branchName);
       await this.git(["checkout", "main"]);
       try {
         await this.git(["merge", "--no-ff", branchName, "-m", `Merge ${branchName} into main`]);
@@ -146,6 +147,34 @@ export class WorktreeManager {
     return join(this.worktreeRoot, sanitizeTaskId(taskId));
   }
 
+  private async assertNoLocalMergeConflicts(branchName: string): Promise<void> {
+    const branchChangedPaths = new Set(splitLines(await this.git(["diff", "--name-only", `main...${branchName}`])));
+    if (branchChangedPaths.size === 0) return;
+
+    const untrackedPaths = splitLines(await this.git(["ls-files", "--others", "--exclude-standard"]));
+    const stagedDirtyPaths = splitLines(await this.git(["diff", "--cached", "--name-only"]));
+    const unstagedDirtyPaths = splitLines(await this.git(["diff", "--name-only"]));
+    const localDirtyPaths = new Set<string>([
+      ...untrackedPaths,
+      ...stagedDirtyPaths,
+      ...unstagedDirtyPaths,
+    ]);
+
+    const conflictingPaths = [...localDirtyPaths]
+      .filter((filePath) => branchChangedPaths.has(filePath))
+      .sort();
+    if (conflictingPaths.length === 0) return;
+
+    const preview = conflictingPaths.slice(0, 5).join(", ");
+    const suffix = conflictingPaths.length > 5
+      ? `, +${conflictingPaths.length - 5} more`
+      : "";
+    throw new Error(
+      `Local files conflict with merge target for ${branchName}: ${preview}${suffix}. `
+      + "Use a fresh output directory or clean conflicting files before retrying.",
+    );
+  }
+
   private async git(args: string[]): Promise<string> {
     try {
       const { stdout } = await execFileAsync("git", args, {
@@ -177,4 +206,11 @@ export class WorktreeManager {
 
 function sanitizeTaskId(taskId: string): string {
   return taskId.replace(/[^a-zA-Z0-9-_]/g, "-");
+}
+
+function splitLines(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }

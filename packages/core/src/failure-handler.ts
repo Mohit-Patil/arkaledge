@@ -7,6 +7,8 @@ import type { AgentConfig, Task } from "./types.js";
  * Handles failed tasks with a retry → reassign → block pipeline.
  */
 export class FailureHandler {
+  private emittedPermanentBlock = new Set<string>();
+
   constructor(
     private kanban: KanbanManager,
     private eventBus: EventBus,
@@ -17,8 +19,18 @@ export class FailureHandler {
     task: Task,
     engineers: Map<string, { runtime: AgentRuntime; config: AgentConfig }>,
   ): Promise<"retry" | "reassigned" | "blocked"> {
+    const latestFailureReason = getLatestBlockedReason(task);
+    const unrecoverableReason = latestFailureReason && isUnrecoverableFailureReason(latestFailureReason)
+      ? latestFailureReason
+      : undefined;
+
+    if (unrecoverableReason) {
+      return this.emitPermanentBlock(task, unrecoverableReason);
+    }
+
     // 1. Retry: if under max retries, backoff then send back to backlog
     if (task.retryCount < this.maxRetries) {
+      this.emittedPermanentBlock.delete(task.id);
       const backoffMs = 2 ** (task.retryCount + 1) * 1000; // 2s, 4s, 8s
       await sleep(backoffMs);
 
@@ -42,6 +54,7 @@ export class FailureHandler {
     const alternate = findAlternateEngineer(engineers, task.assignee, originalEngineer?.config);
 
     if (alternate) {
+      this.emittedPermanentBlock.delete(task.id);
       await this.kanban.updateTask(task.id, {
         retryCount: 0,
         assignee: undefined,
@@ -61,12 +74,16 @@ export class FailureHandler {
     }
 
     // 3. Block: no alternate available, keep as blocked
-    const lastFailure = [...task.history].reverse().find(
-      (e) => e.action === "status_changed" && e.detail?.includes("blocked"),
-    );
-    const reason = lastFailure?.detail
-      ?? `Failed after ${task.retryCount} retries`;
+    const reason = latestFailureReason ?? `Failed after ${task.retryCount} retries`;
+    return this.emitPermanentBlock(task, reason);
+  }
 
+  private emitPermanentBlock(task: Task, reason: string): "blocked" {
+    if (this.emittedPermanentBlock.has(task.id)) {
+      return "blocked";
+    }
+
+    this.emittedPermanentBlock.add(task.id);
     this.eventBus.emit({
       type: "agent:error",
       agentId: "failure-handler",
@@ -75,7 +92,6 @@ export class FailureHandler {
       summary: `Task "${task.title}" permanently blocked — no alternate engineer available. Reason: ${reason}`,
       data: { taskId: task.id, action: "blocked", reason },
     });
-
     return "blocked";
   }
 }
@@ -98,4 +114,15 @@ function findAlternateEngineer(
     }
   }
   return undefined;
+}
+
+function getLatestBlockedReason(task: Task): string | undefined {
+  const blockedStatusChange = [...task.history].reverse().find(
+    (event) => event.action === "status_changed" && typeof event.detail === "string" && event.detail.length > 0,
+  );
+  return blockedStatusChange?.detail;
+}
+
+function isUnrecoverableFailureReason(reason: string): boolean {
+  return /merge\/cleanup failed|would be overwritten by merge|auto-approval merge failed/i.test(reason);
 }

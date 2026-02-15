@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
   createAgentRuntime,
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
       config: { type: "string", short: "c" },
       spec: { type: "string" },
       output: { type: "string", short: "o" },
+      resume: { type: "boolean", default: false },
       workdir: { type: "string", short: "w", default: process.cwd() },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -42,9 +44,13 @@ async function main(): Promise<void> {
 
     const config = await loadConfig(values.config ?? "default");
     const outputDir = values.output ?? "./output";
+    const resume = values.resume ?? false;
+    await assertOutputMode(outputDir, resume);
 
     console.log(`\n🚀 Arkaledge — Orchestrating team (${config.team.length} agents)\n`);
     console.log(`   Output: ${outputDir}\n`);
+    console.log(`   Mode: ${resume ? "resume" : "fresh"}\n`);
+    process.env.ARKALEDGE_RESUME_MODE = resume ? "1" : "0";
 
     // Wire event logging
     globalEventBus.on("*", (event: AgentEvent) => {
@@ -174,6 +180,41 @@ function eventIcon(type: string): string {
   return "💬";
 }
 
+async function assertOutputMode(outputDir: string, resume: boolean): Promise<void> {
+  const outputExists = await pathExists(outputDir);
+  const kanbanPath = join(outputDir, ".arkaledge", "kanban.json");
+  const hasKanban = await pathExists(kanbanPath);
+
+  if (resume) {
+    if (!outputExists || !hasKanban) {
+      throw new Error(
+        `Cannot resume: expected existing run state at ${kanbanPath}. `
+        + "Use a prior output directory or run without --resume for a fresh project.",
+      );
+    }
+    return;
+  }
+
+  if (!outputExists) return;
+
+  const entries = await readdir(outputDir);
+  if (entries.length > 0) {
+    throw new Error(
+      `Output directory is not empty: ${outputDir}. `
+      + "Use a fresh --output directory, or rerun with --resume to continue an existing run.",
+    );
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function printUsage(): void {
   console.log(`
 Arkaledge — Autonomous AI Scrum Team Platform
@@ -189,6 +230,7 @@ Options:
   -c, --config   Path to team-config.yaml
       --spec     Path to product spec file (triggers orchestration mode)
   -o, --output   Output directory for orchestrated project (default: ./output)
+      --resume   Resume an existing orchestration run in --output
   -w, --workdir  Working directory (default: current directory)
   -h, --help     Show this help message
 
@@ -198,6 +240,7 @@ Examples:
 
   # Full team orchestration
   arkaledge run --spec ./spec.md --config ./team-config.yaml --output /tmp/myproject
+  arkaledge run --spec ./spec.md --config ./team-config.yaml --output /tmp/myproject --resume
   arkaledge run -p "Build a calculator CLI" -c ./team-config.yaml -o /tmp/calc
 `);
 }

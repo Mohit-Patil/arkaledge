@@ -77,17 +77,6 @@ export class ScrumMasterRole {
       const activeTasks = currentTasks.filter((t) => t.status !== "done");
       if (activeTasks.length === 0) break;
 
-      const currentBlockedTasks = currentTasks.filter((t) => t.status === "blocked");
-      const blockedIds = new Set(currentBlockedTasks.map((t) => t.id));
-      // Backlog tasks whose deps include a blocked task are also stuck
-      const stuckBacklogTasks = currentTasks.filter(
-        (t) => t.status === "backlog" && t.dependsOn?.some((depId) => blockedIds.has(depId)),
-      );
-      const stuckCount = currentBlockedTasks.length + stuckBacklogTasks.length;
-      if (activeTasks.length === stuckCount && this.activeWork.size === 0) {
-        break;
-      }
-
       // 2. Assign backlog tasks and orphaned in_progress tasks to idle engineers
       const candidateTasks = currentTasks
         .filter((t) => t.status === "backlog" || (t.status === "in_progress" && (!t.assignee || (this.idleEngineers.has(t.assignee) && !this.activeWork.has(t.assignee)))))
@@ -99,6 +88,23 @@ export class ScrumMasterRole {
         if (await this.kanban.areDependenciesMet(task)) {
           schedulableTasks.push(task);
         }
+      }
+
+      const pendingReviewTasks = currentTasks.filter(
+        (t) => t.status === "review" && !this.activeReviewTasks.has(t.id),
+      );
+      if (schedulableTasks.length === 0 && pendingReviewTasks.length === 0 && this.activeWork.size === 0) {
+        const blockedCount = currentTasks.filter((t) => t.status === "blocked").length;
+        const backlogCount = currentTasks.filter((t) => t.status === "backlog").length;
+        this.eventBus.emit({
+          type: "agent:error",
+          agentId: "scrum-master",
+          agentRole: "scrum-master",
+          timestamp: Date.now(),
+          summary: `No schedulable tasks remain (${blockedCount} blocked, ${backlogCount} backlog)`,
+          data: { blockedCount, backlogCount },
+        });
+        break;
       }
 
       for (const task of schedulableTasks) {

@@ -9,42 +9,39 @@ const execFileAsync = promisify(execFile);
 
 const ENGINEER_SYSTEM_PROMPT = `You are a software engineer. Your job is to implement the given task completely.
 
+BEFORE STARTING, inspect the project to determine its tech stack:
+- Check for package.json, tsconfig.json, file extensions (.ts vs .js), and any existing code
+- This determines which conventions to follow — write JavaScript for JS projects, TypeScript for TS projects
+
 MANDATORY REQUIREMENTS:
 1. Write clean, working code that satisfies all acceptance criteria
-2. Write tests for your implementation using Vitest
+2. Write tests for your implementation (use the project's existing test framework; if none exists, use Node's built-in test runner via \`node:test\` and avoid adding external dependencies)
 3. Run the tests to verify they pass
 4. If tests fail, analyze the error and fix the code, then re-run tests
 
-TYPE SAFETY (MUST FOLLOW):
-- NEVER use \`any\` — use \`unknown\` and narrow
-- Always annotate function parameters and return types explicitly
-- Use explicit null checks instead of non-null assertions (!)
-- Extract magic numbers to named constants
-
-ERROR HANDLING:
-- Wrap all async operations in try/catch
-- Never silently swallow errors — log and handle or rethrow
-- Include context in error messages (taskId, agentId)
-
-CODE ORGANIZATION:
-- One export per file — use index.ts for re-exports only
-- Prefer interfaces over type aliases for object shapes
-- Use \`readonly\` for parameters that should not be mutated
-- Test files must be named \*.test.ts
+QUALITY STANDARDS (adapt to the project's stack):
+- Handle errors properly — no empty catch blocks, log or handle errors meaningfully
+- No magic numbers where named constants improve clarity
+- TypeScript projects: use proper typing (no \`any\`), explicit annotations, no non-null assertions
+- JavaScript projects: validate inputs, use clear variable names, handle edge cases
 
 Do NOT output JSON — just implement the task by writing code and running tests.`;
 
 /** Test failure indicators to scan for in agent output. */
 const FAILURE_PATTERNS = [
-  /FAIL/i,
-  /Error:/,
+  /Command exit code:\s*[1-9]\d*/i,
+  /exited with code [1-9]\d*/i,
+  /Claude Code process exited with code/i,
+  /Codex Exec exited with code/i,
+  /You've hit your limit/i,
+  /rate limit/i,
+  /Tests?\s+failed/i,
+  /FAIL\s+.*\.test\./i,
   /AssertionError/i,
-  /test(s)? failed/i,
-  /exit code [1-9]/i,
   /npm ERR!/,
-  /TypeError:/,
-  /ReferenceError:/,
-  /SyntaxError:/,
+  /vitest.*failed/i,
+  /jest.*failed/i,
+  /[1-9]\d*\s+failed/i,
 ];
 
 interface ExecError extends Error {
@@ -98,8 +95,9 @@ export class EngineerRole {
     // Initial run
     const result = await this.runAndCollect(userPrompt, workingDirectory);
     let lastOutput = result.output;
+    let lastDiagnostics = result.diagnostics;
     sessionId = result.sessionId;
-    let success = !hasTestFailures(lastOutput);
+    let success = !hasTestFailures(lastDiagnostics);
 
     // Self-correction loop
     let retries = 0;
@@ -116,15 +114,16 @@ export class EngineerRole {
         data: { taskId: task.id, retry: retries },
       });
 
-      const retryPrompt = `The tests failed. Here is the error output:\n\n${lastOutput.slice(-2000)}\n\nFix the code and run the tests again.`;
+      const retryPrompt = `The tests failed. Here is the error output:\n\n${(lastDiagnostics || lastOutput).slice(-2000)}\n\nFix the code and run the tests again.`;
 
       const retryResult = sessionId
         ? await this.resumeAndCollect(sessionId, retryPrompt, workingDirectory)
         : await this.runAndCollect(retryPrompt, workingDirectory);
 
       lastOutput = retryResult.output;
+      lastDiagnostics = retryResult.diagnostics;
       sessionId = retryResult.sessionId;
-      success = !hasTestFailures(lastOutput);
+      success = !hasTestFailures(lastDiagnostics);
     }
 
     if (success) {
@@ -177,8 +176,9 @@ export class EngineerRole {
   private async runAndCollect(
     prompt: string,
     workingDirectory: string,
-  ): Promise<{ output: string; sessionId?: string }> {
+  ): Promise<{ output: string; diagnostics: string; sessionId?: string }> {
     let output = "";
+    let diagnostics = "";
     let sessionId: string | undefined;
 
     for await (const message of this.runtime.run(prompt, {
@@ -186,6 +186,7 @@ export class EngineerRole {
       workingDirectory,
     })) {
       output += messageToString(message);
+      diagnostics += messageToDiagnosticString(message);
       sessionId = extractSessionId(message);
 
       this.eventBus.emit({
@@ -198,19 +199,21 @@ export class EngineerRole {
       });
     }
 
-    return { output, sessionId };
+    return { output, diagnostics, sessionId };
   }
 
   private async resumeAndCollect(
     sessionId: string,
     prompt: string,
     workingDirectory: string,
-  ): Promise<{ output: string; sessionId?: string }> {
+  ): Promise<{ output: string; diagnostics: string; sessionId?: string }> {
     let output = "";
+    let diagnostics = "";
     let newSessionId: string | undefined = sessionId;
 
     for await (const message of this.runtime.resume(sessionId, prompt, { workingDirectory })) {
       output += messageToString(message);
+      diagnostics += messageToDiagnosticString(message);
       const sid = extractSessionId(message);
       if (sid) newSessionId = sid;
 
@@ -224,7 +227,7 @@ export class EngineerRole {
       });
     }
 
-    return { output, sessionId: newSessionId };
+    return { output, diagnostics, sessionId: newSessionId };
   }
 
   private async ensureTaskCommit(
@@ -242,10 +245,38 @@ export class EngineerRole {
 
     const status = await this.runGit(workingDirectory, ["status", "--porcelain"]);
     if (!status.trim()) {
-      return {
-        success: false,
-        detail: "No changes to commit and branch has no commits ahead of main",
-      };
+      // Verification-only tasks can legitimately have no file changes.
+      // Create an explicit empty commit so the branch has auditable task completion.
+      try {
+        await this.runGit(
+          workingDirectory,
+          ["commit", "--allow-empty", "-m", `chore(${task.id}): ${task.title}`],
+        );
+      } catch {
+        await this.ensureGitIdentity(workingDirectory);
+        await this.runGit(
+          workingDirectory,
+          ["commit", "--allow-empty", "-m", `chore(${task.id}): ${task.title}`],
+        );
+        this.eventBus.emit({
+          type: "agent:message",
+          agentId: this.runtime.id,
+          agentRole: "engineer",
+          timestamp: Date.now(),
+          summary: "Configured local git identity before creating empty task commit",
+          data: { taskId: task.id },
+        });
+      }
+
+      const postEmptyCommitAhead = await this.countBranchCommits(workingDirectory, task.branch);
+      if (postEmptyCommitAhead <= 0) {
+        return {
+          success: false,
+          detail: "Created empty commit but branch still has no commits ahead of main",
+        };
+      }
+
+      return { success: true, detail: "Created empty task commit" };
     }
 
     await this.runGit(workingDirectory, ["add", "-A"]);
@@ -346,6 +377,13 @@ function hasTestFailures(output: string): boolean {
 
 function messageToString(msg: AgentMessage): string {
   if (msg.type === "text" || msg.type === "tool_result" || msg.type === "error") {
+    return msg.content + "\n";
+  }
+  return "";
+}
+
+function messageToDiagnosticString(msg: AgentMessage): string {
+  if (msg.type === "tool_result" || msg.type === "error") {
     return msg.content + "\n";
   }
   return "";

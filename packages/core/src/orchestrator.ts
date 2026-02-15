@@ -4,9 +4,10 @@ import { createTeamRuntimes } from "./agents/agent-factory.js";
 import type { AgentRuntime } from "./agents/agent-runtime.js";
 import { globalEventBus } from "./event-bus.js";
 import { KanbanManager } from "./kanban.js";
+import { ensureSharedProjectContext } from "./project-context.js";
 import { ProductManagerRole } from "./roles/product-manager.js";
 import { ScrumMasterRole } from "./roles/scrum-master.js";
-import type { AgentConfig, TeamConfig } from "./types.js";
+import type { AgentConfig, SharedProjectContext, TeamConfig } from "./types.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
 // Allow nested Claude Code sessions — the SDK spawns `claude` subprocesses
@@ -19,6 +20,7 @@ delete process.env.CLAUDECODE;
 export class Orchestrator {
   private scrumMaster: ScrumMasterRole | undefined;
   private runtimes: Map<string, AgentRuntime> = new Map();
+  private sharedContext: SharedProjectContext | undefined;
 
   constructor(
     private config: TeamConfig,
@@ -41,6 +43,20 @@ export class Orchestrator {
     await mkdir(this.projectDir, { recursive: true });
     await mkdir(join(this.projectDir, ".arkaledge"), { recursive: true });
 
+    // Build/reuse shared project context for this output project.
+    this.sharedContext = await ensureSharedProjectContext(this.projectDir);
+    eventBus.emit({
+      type: "agent:message",
+      agentId: "orchestrator",
+      agentRole: "system",
+      timestamp: Date.now(),
+      summary: `Shared project context ready (${this.sharedContext.context.fingerprint.slice(0, 12)})`,
+      data: {
+        contextFingerprint: this.sharedContext.context.fingerprint,
+        contextFile: this.sharedContext.markdownPath,
+      },
+    });
+
     // Create all agent runtimes from config
     this.runtimes = createTeamRuntimes(this.config.team);
 
@@ -59,7 +75,7 @@ export class Orchestrator {
       throw new Error(`Runtime not found for PM agent: ${pmConfig.id}`);
     }
 
-    const pm = new ProductManagerRole(pmRuntime, kanban, eventBus);
+    const pm = new ProductManagerRole(pmRuntime, kanban, eventBus, this.sharedContext);
     const tasks = await pm.breakdownSpec(spec, this.projectDir);
 
     eventBus.emit({
@@ -92,6 +108,7 @@ export class Orchestrator {
       eventBus,
       this.config.workflow,
       new WorktreeManager(this.projectDir),
+      this.sharedContext,
     );
 
     await this.scrumMaster.run(this.projectDir);

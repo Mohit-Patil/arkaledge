@@ -14,6 +14,8 @@ export type {
   WorkflowConfig,
   PluginRef,
   TeamConfig,
+  ProjectContext,
+  SharedProjectContext,
   EventType,
   AgentEvent,
 } from "./types.js";
@@ -51,6 +53,7 @@ export { createApiServer, type ApiServerOptions } from "./api-server.js";
 // Orchestration
 export { Orchestrator } from "./orchestrator.js";
 export { FailureHandler } from "./failure-handler.js";
+export { ensureSharedProjectContext } from "./project-context.js";
 
 // Roles
 export { ProductManagerRole } from "./roles/product-manager.js";

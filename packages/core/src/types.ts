@@ -65,6 +65,7 @@ export interface Task {
   createdBy: string;
   reviewComments?: string[];
   dependsOn?: string[];
+  contextFingerprint?: string;
 }
 
 export interface KanbanState {
@@ -95,6 +96,32 @@ export interface TeamConfig {
   team: AgentConfig[];
   workflow: WorkflowConfig;
   plugins: PluginRef[];
+}
+
+// ─── Shared Project Context ───
+
+export interface ProjectContext {
+  schemaVersion: number;
+  generatedAt: string;
+  fingerprint: string;
+  projectDir: string;
+  primaryLanguage: string;
+  packageManager: "npm" | "pnpm" | "yarn" | "bun" | "none";
+  testCommand: string;
+  hasTypeScript: boolean;
+  sourceFileCount: number;
+  testFileCount: number;
+  importantFiles: string[];
+  sampleFiles: string[];
+  agentsGuidance?: string;
+  cloudGuidance?: string;
+}
+
+export interface SharedProjectContext {
+  context: ProjectContext;
+  prompt: string;
+  jsonPath: string;
+  markdownPath: string;
 }
 
 // ─── Event System ───

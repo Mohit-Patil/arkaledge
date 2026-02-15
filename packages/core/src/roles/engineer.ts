@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
-import type { AgentMessage, Task } from "../types.js";
+import type { AgentMessage, SharedProjectContext, Task } from "../types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,6 +57,7 @@ export class EngineerRole {
     private runtime: AgentRuntime,
     private kanban: KanbanManager,
     private eventBus: EventBus,
+    private sharedContext?: SharedProjectContext,
   ) {}
 
   async executeTask(task: Task, _projectDir: string, maxRetries: number): Promise<boolean> {
@@ -89,7 +90,7 @@ export class EngineerRole {
       data: { taskId: task.id, worktree: workingDirectory, branch: task.branch },
     });
 
-    const userPrompt = buildTaskPrompt(task);
+    const userPrompt = buildTaskPrompt(task, this.sharedContext);
     let sessionId: string | undefined;
 
     // Initial run
@@ -355,8 +356,11 @@ export class EngineerRole {
   }
 }
 
-function buildTaskPrompt(task: Task): string {
+function buildTaskPrompt(task: Task, sharedContext?: SharedProjectContext): string {
   const criteria = task.acceptanceCriteria.map((c) => `- ${c}`).join("\n");
+  const contextBlock = sharedContext
+    ? `\n**Shared Project Context (use this first):**\n${sharedContext.prompt}\n`
+    : "\n**Shared Project Context:** unavailable in this run.\n";
   return `Implement this task:
 
 **Title:** ${task.title}
@@ -365,6 +369,7 @@ function buildTaskPrompt(task: Task): string {
 
 **Acceptance Criteria:**
 ${criteria}
+${contextBlock}
 
 You are operating in task worktree: ${task.worktree ?? "UNKNOWN"} on branch: ${task.branch ?? "UNKNOWN"}.
 Write the implementation code and tests. Run the tests to verify everything works.

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
-import type { Task } from "../types.js";
+import type { SharedProjectContext, Task } from "../types.js";
 import type { WorktreeManager } from "../worktree-manager.js";
 
 const verdictSchema = z.object({
@@ -53,6 +53,7 @@ export class ReviewerRole {
     private eventBus: EventBus,
     private worktreeManager: WorktreeManager,
     private autoMerge: boolean,
+    private sharedContext?: SharedProjectContext,
   ) {}
 
   async reviewTask(task: Task, projectDir: string): Promise<"approved" | "rejected"> {
@@ -107,6 +108,9 @@ export class ReviewerRole {
     const trimmedDiff = diff.trim().slice(0, DIFF_CHAR_LIMIT);
     const criteria = task.acceptanceCriteria.map((c) => `- ${c}`).join("\n");
     const reviewHistory = (task.reviewComments ?? []).map((c) => `- ${c}`).join("\n");
+    const contextBlock = this.sharedContext
+      ? `**Shared Project Context:**\n${this.sharedContext.prompt}\n`
+      : "**Shared Project Context:** unavailable in this run.\n";
     const userPrompt = `Review the implementation for this task:
 
 **Title:** ${task.title}
@@ -115,6 +119,7 @@ export class ReviewerRole {
 
 **Acceptance Criteria:**
 ${criteria}
+${contextBlock}
 
 **Branch:** ${task.branch}
 

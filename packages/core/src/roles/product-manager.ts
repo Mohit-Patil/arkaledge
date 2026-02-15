@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
-import type { Task } from "../types.js";
+import type { SharedProjectContext, Task } from "../types.js";
 
 const taskItemSchema = z.object({
   title: z.string(),
@@ -39,6 +39,7 @@ export class ProductManagerRole {
     private runtime: AgentRuntime,
     private kanban: KanbanManager,
     private eventBus: EventBus,
+    private sharedContext?: SharedProjectContext,
   ) {}
 
   async breakdownSpec(spec: string, projectDir: string): Promise<Task[]> {
@@ -50,7 +51,10 @@ export class ProductManagerRole {
       summary: "PM starting spec breakdown",
     });
 
-    const prompt = `Break this product specification into engineering tasks:\n\n${spec}`;
+    const contextBlock = this.sharedContext
+      ? `Shared context fingerprint: ${this.sharedContext.context.fingerprint}\n${this.sharedContext.prompt}\n`
+      : "Shared project context is unavailable for this run.";
+    const prompt = `Use the shared context below when planning tasks. Avoid redundant repository discovery unless needed.\n\n${contextBlock}\n\nBreak this product specification into engineering tasks:\n\n${spec}`;
 
     // Collect all text output from the agent
     let fullOutput = "";
@@ -88,6 +92,7 @@ export class ProductManagerRole {
         priority: item.priority,
         epic: item.epic,
         createdBy: this.runtime.id,
+        contextFingerprint: this.sharedContext?.context.fingerprint,
       });
       createdTasks.push(task);
     }

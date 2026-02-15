@@ -2,7 +2,7 @@ import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import { FailureHandler } from "../failure-handler.js";
 import type { KanbanManager } from "../kanban.js";
-import type { AgentConfig, WorkflowConfig } from "../types.js";
+import type { AgentConfig, SharedProjectContext, WorkflowConfig } from "../types.js";
 import type { Task } from "../types.js";
 import type { WorktreeManager } from "../worktree-manager.js";
 import { EngineerRole } from "./engineer.js";
@@ -27,6 +27,7 @@ export class ScrumMasterRole {
     private eventBus: EventBus,
     private workflowConfig: WorkflowConfig,
     private worktreeManager: WorktreeManager,
+    private sharedContext?: SharedProjectContext,
   ) {
     this.idleEngineers = new Set(engineers.keys());
     this.failureHandler = new FailureHandler(kanban, eventBus, workflowConfig.max_retries);
@@ -122,7 +123,7 @@ export class ScrumMasterRole {
         }
 
         const engineer = this.engineers.get(engineerId)!;
-        const engineerRole = new EngineerRole(engineer.runtime, this.kanban, this.eventBus);
+        const engineerRole = new EngineerRole(engineer.runtime, this.kanban, this.eventBus, this.sharedContext);
 
         const workPromise = engineerRole
           .executeTask(runnableTask, projectDir, this.workflowConfig.max_retries)
@@ -164,6 +165,7 @@ export class ScrumMasterRole {
             this.eventBus,
             this.worktreeManager,
             this.workflowConfig.auto_merge,
+            this.sharedContext,
           );
 
           const reviewPromise = reviewerRole

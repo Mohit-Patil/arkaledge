@@ -148,6 +148,15 @@ body::before {
   color: var(--accent-info);
 }
 
+/* Task Card Dependencies */
+.task-card .depends-on {
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--accent-secondary);
+  opacity: 0.8;
+  letter-spacing: 0.5px;
+}
+
 /* Progress Block */
 .progress-block .bar {
   height: 8px;

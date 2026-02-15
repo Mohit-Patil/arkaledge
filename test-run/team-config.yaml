@@ -1,0 +1,28 @@
+team:
+  - role: product-manager
+    sdk: claude
+    model: claude-sonnet-4-5-20250929
+    tools: [Read, Write, Glob, Grep]
+
+  - role: scrum-master
+    sdk: claude
+    model: claude-sonnet-4-5-20250929
+    tools: [Read, Write, Glob, Grep, Bash]
+
+  - role: engineer
+    id: eng-1
+    sdk: claude
+    model: claude-sonnet-4-5-20250929
+    tools: [Read, Write, Edit, Bash, Glob, Grep]
+
+  - role: engineer
+    id: eng-2
+    sdk: claude
+    model: claude-sonnet-4-5-20250929
+    tools: [Read, Write, Edit, Bash, Glob, Grep]
+
+workflow:
+  columns: [backlog, in_progress, review, done]
+  max_retries: 2
+  review_required: true
+  auto_merge: true

@@ -125,6 +125,39 @@ export class ClaudeAgentRuntime implements AgentRuntime {
       };
     }
 
+    // Claude Agent SDK "assistant" message — extract text from content blocks
+    if (msg.type === "assistant") {
+      const assistantMsg = msg.message as Record<string, unknown> | undefined;
+      const contentBlocks = assistantMsg?.content as Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(contentBlocks)) {
+        const text = contentBlocks
+          .filter((b) => b.type === "text")
+          .map((b) => b.text as string)
+          .join("");
+        if (text) {
+          return { type: "text", content: text, timestamp: Date.now(), metadata: { raw: msg } };
+        }
+      }
+    }
+
+    // Claude Agent SDK "result" message — extract the final result text
+    if (msg.type === "result") {
+      const result = msg.result;
+      if (typeof result === "string" && result.length > 0) {
+        return { type: "summary", content: result, timestamp: Date.now(), metadata: { raw: msg } };
+      }
+    }
+
+    // Claude Agent SDK "system" init message or "user" (tool result echo) — skip
+    if (msg.type === "system" || msg.type === "user") {
+      return {
+        type: "text",
+        content: "",
+        timestamp: Date.now(),
+        metadata: { raw: msg },
+      };
+    }
+
     // Default: treat as text
     return {
       type: "text",

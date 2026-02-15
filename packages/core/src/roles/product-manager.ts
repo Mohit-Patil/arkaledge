@@ -10,6 +10,7 @@ const taskItemSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
   priority: z.enum(["high", "medium", "low"]),
   epic: z.string().optional(),
+  dependsOn: z.array(z.number().int().min(0)).optional(),
 });
 
 const taskArraySchema = z.array(taskItemSchema);
@@ -24,6 +25,7 @@ Each task object must have:
 - acceptanceCriteria (string[]): Measurable criteria for completion
 - priority ("high" | "medium" | "low"): Task priority
 - epic (string): Feature group this task belongs to
+- dependsOn (number[]): 0-based indices of tasks in this array that must be completed before this task can start. Only reference earlier indices (less than the current task's index). Omit or use [] if the task has no dependencies.
 
 Order tasks by dependency — foundational tasks first, dependent tasks later.
 Keep tasks small and focused. Each task should be completable by a single engineer in one session.`;
@@ -75,7 +77,7 @@ export class ProductManagerRole {
     const parsed = JSON.parse(jsonStr) as unknown;
     const taskItems = taskArraySchema.parse(parsed);
 
-    // Write each task to the Kanban board
+    // Pass 1: Create all tasks, collect IDs
     const createdTasks: Task[] = [];
     for (const item of taskItems) {
       const task = await this.kanban.addTask({
@@ -88,6 +90,22 @@ export class ProductManagerRole {
         createdBy: this.runtime.id,
       });
       createdTasks.push(task);
+    }
+
+    // Pass 2: Resolve index references to real task IDs
+    for (let i = 0; i < taskItems.length; i++) {
+      const deps = taskItems[i].dependsOn;
+      if (!deps || deps.length === 0) continue;
+
+      const resolvedIds = deps
+        .filter((idx) => idx >= 0 && idx < i && idx < createdTasks.length)
+        .map((idx) => createdTasks[idx].id);
+
+      if (resolvedIds.length > 0) {
+        createdTasks[i] = await this.kanban.updateTask(createdTasks[i].id, {
+          dependsOn: resolvedIds,
+        });
+      }
     }
 
     this.eventBus.emit({

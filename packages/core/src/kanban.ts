@@ -190,6 +190,16 @@ export class KanbanManager {
     });
   }
 
+  async areDependenciesMet(task: Task): Promise<boolean> {
+    if (!task.dependsOn || task.dependsOn.length === 0) return true;
+    const state = await this.load();
+    for (const depId of task.dependsOn) {
+      const dep = state.tasks.find((t) => t.id === depId);
+      if (!dep || dep.status !== "done") return false;
+    }
+    return true;
+  }
+
   async getAllTasks(): Promise<Task[]> {
     const state = await this.load();
     return state.tasks;

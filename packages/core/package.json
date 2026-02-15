@@ -19,7 +19,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.41",
+    "@anthropic-ai/claude-agent-sdk": "0.2.42",
     "@openai/codex-sdk": "^0.101.0"
   },
   "peerDependenciesMeta": {
@@ -31,8 +31,8 @@
     }
   },
   "devDependencies": {
-    "typescript": "^5.7",
+    "@types/node": "^25",
     "@types/proper-lockfile": "^4.1.4",
-    "@types/node": "^25"
+    "typescript": "^5.7"
   }
 }

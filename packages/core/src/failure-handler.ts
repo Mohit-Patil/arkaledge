@@ -61,13 +61,19 @@ export class FailureHandler {
     }
 
     // 3. Block: no alternate available, keep as blocked
+    const lastFailure = [...task.history].reverse().find(
+      (e) => e.action === "status_changed" && e.detail?.includes("blocked"),
+    );
+    const reason = lastFailure?.detail
+      ?? `Failed after ${task.retryCount} retries`;
+
     this.eventBus.emit({
       type: "agent:error",
       agentId: "failure-handler",
       agentRole: "system",
       timestamp: Date.now(),
-      summary: `Task "${task.title}" permanently blocked — no alternate engineer available`,
-      data: { taskId: task.id, action: "blocked" },
+      summary: `Task "${task.title}" permanently blocked — no alternate engineer available. Reason: ${reason}`,
+      data: { taskId: task.id, action: "blocked", reason },
     });
 
     return "blocked";

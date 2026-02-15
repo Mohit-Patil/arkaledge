@@ -52,17 +52,33 @@ export class ScrumMasterRole {
 
       const currentTasks = await this.kanban.getAllTasks();
 
-      // Exit: all tasks are done (or blocked permanently after recovery attempts)
+      // Exit: all tasks are done (or stuck permanently after recovery attempts)
       const activeTasks = currentTasks.filter((t) => t.status !== "done");
+      if (activeTasks.length === 0) break;
+
       const currentBlockedTasks = currentTasks.filter((t) => t.status === "blocked");
-      if (activeTasks.length === 0 || (activeTasks.length === currentBlockedTasks.length && this.activeWork.size === 0)) {
+      const blockedIds = new Set(currentBlockedTasks.map((t) => t.id));
+      // Backlog tasks whose deps include a blocked task are also stuck
+      const stuckBacklogTasks = currentTasks.filter(
+        (t) => t.status === "backlog" && t.dependsOn?.some((depId) => blockedIds.has(depId)),
+      );
+      const stuckCount = currentBlockedTasks.length + stuckBacklogTasks.length;
+      if (activeTasks.length === stuckCount && this.activeWork.size === 0) {
         break;
       }
 
       // 2. Assign backlog tasks and orphaned in_progress tasks to idle engineers
-      const schedulableTasks = currentTasks
+      const candidateTasks = currentTasks
         .filter((t) => t.status === "backlog" || (t.status === "in_progress" && (!t.assignee || (this.idleEngineers.has(t.assignee) && !this.activeWork.has(t.assignee)))))
         .sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority));
+
+      // Filter out tasks whose dependencies haven't been met
+      const schedulableTasks: Task[] = [];
+      for (const task of candidateTasks) {
+        if (await this.kanban.areDependenciesMet(task)) {
+          schedulableTasks.push(task);
+        }
+      }
 
       for (const task of schedulableTasks) {
         if (this.idleEngineers.size === 0) break;

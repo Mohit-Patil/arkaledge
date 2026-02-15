@@ -35,5 +35,9 @@
   "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.2.42",
+    "@openai/codex-sdk": "^0.101.0"
   }
 }

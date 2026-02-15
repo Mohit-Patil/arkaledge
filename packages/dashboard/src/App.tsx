@@ -46,6 +46,9 @@ function TaskCard({ task }: { task: Task }) {
       <div className="title">{task.title}</div>
       <div className="priority">{priorityLabel(task.priority)}</div>
       {task.assignee && <div className="assignee">{task.assignee}</div>}
+      {task.dependsOn && task.dependsOn.length > 0 && (
+        <div className="depends-on">DEPENDS ON: {task.dependsOn.join(", ")}</div>
+      )}
     </div>
   );
 }

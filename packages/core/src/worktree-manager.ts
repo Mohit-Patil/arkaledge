@@ -78,7 +78,13 @@ export class WorktreeManager {
     return this.withQueue(async () => {
       await this.ensureRepositoryReady();
       await this.git(["checkout", "main"]);
-      await this.git(["merge", "--no-ff", branchName, "-m", `Merge ${branchName} into main`]);
+      try {
+        await this.git(["merge", "--no-ff", branchName, "-m", `Merge ${branchName} into main`]);
+      } catch (error) {
+        // Abort the merge to leave the index clean for subsequent operations
+        await this.tryGit(["merge", "--abort"]);
+        throw error;
+      }
     });
   }
 
@@ -116,6 +122,10 @@ export class WorktreeManager {
       await this.ensureGitIdentity();
       await this.git(["commit", "--allow-empty", "-m", INITIAL_COMMIT_MESSAGE]);
     }
+
+    // Clean up any dirty merge/rebase state before switching branches
+    await this.tryGit(["merge", "--abort"]);
+    await this.tryGit(["rebase", "--abort"]);
 
     await this.git(["checkout", "-B", "main"]);
   }

@@ -9,6 +9,10 @@ import { ScrumMasterRole } from "./roles/scrum-master.js";
 import type { AgentConfig, TeamConfig } from "./types.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
+// Allow nested Claude Code sessions — the SDK spawns `claude` subprocesses
+// which refuse to start if CLAUDECODE is set (prevents accidental nesting).
+delete process.env.CLAUDECODE;
+
 /**
  * Main orchestrator: wires PM breakdown → Scrum Master coordination → completion.
  */

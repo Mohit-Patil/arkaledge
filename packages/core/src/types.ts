@@ -64,6 +64,7 @@ export interface Task {
   history: TaskEvent[];
   createdBy: string;
   reviewComments?: string[];
+  dependsOn?: string[];
 }
 
 export interface KanbanState {

@@ -1,5 +1,5 @@
-import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { AgentHealthRegistry } from "../agent-health.js";
+import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import { FailureHandler } from "../failure-handler.js";
 import type { KanbanManager } from "../kanban.js";

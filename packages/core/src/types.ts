@@ -114,7 +114,7 @@ export interface ProjectContext {
   importantFiles: string[];
   sampleFiles: string[];
   agentsGuidance?: string;
-  cloudGuidance?: string;
+  claudeGuidance?: string;
 }
 
 export interface SharedProjectContext {

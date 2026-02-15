@@ -33,7 +33,7 @@ const CONTEXT_SIGNAL_FILES = [
   "jsconfig.json",
   "README.md",
   "AGENTS.md",
-  "CLOUD.md",
+  "CLAUDE.md",
 ];
 
 const memoryCache = new Map<string, SharedProjectContext>();
@@ -129,7 +129,7 @@ async function buildContext(
   const testCommand = detectTestCommand(packageScripts, inventory.testFileCount, primaryLanguage);
   const hasTypeScript = inventory.languageCounts.typescript > 0 || inventory.files.includes("tsconfig.json");
   const agentsGuidance = await readGuidanceFile(projectDir, "AGENTS.md");
-  const cloudGuidance = await readGuidanceFile(projectDir, "CLOUD.md");
+  const claudeGuidance = await readGuidanceFile(projectDir, "CLAUDE.md");
 
   // Preserve deterministic ordering for context stability.
   importantFiles.sort();
@@ -150,7 +150,7 @@ async function buildContext(
     importantFiles,
     sampleFiles,
     agentsGuidance,
-    cloudGuidance,
+    claudeGuidance,
   };
 }
 
@@ -176,9 +176,9 @@ function formatPrompt(context: ProjectContext, markdownPath: string): string {
     lines.push(context.agentsGuidance);
   }
 
-  if (context.cloudGuidance) {
-    lines.push("CLOUD.md guidance excerpt:");
-    lines.push(context.cloudGuidance);
+  if (context.claudeGuidance) {
+    lines.push("CLAUDE.md guidance excerpt:");
+    lines.push(context.claudeGuidance);
   }
 
   return lines.join("\n");
@@ -219,8 +219,8 @@ function renderMarkdown(context: ProjectContext): string {
     lines.push("", "## AGENTS.md Guidance (Excerpt)", "", context.agentsGuidance);
   }
 
-  if (context.cloudGuidance) {
-    lines.push("", "## CLOUD.md Guidance (Excerpt)", "", context.cloudGuidance);
+  if (context.claudeGuidance) {
+    lines.push("", "## CLAUDE.md Guidance (Excerpt)", "", context.claudeGuidance);
   }
 
   lines.push("");
@@ -327,7 +327,7 @@ function buildImportantFiles(files: string[]): string[] {
   const important = new Set<string>();
   const namedFiles = new Set([
     "AGENTS.md",
-    "CLOUD.md",
+    "CLAUDE.md",
     "README.md",
     "package.json",
     "package-lock.json",
@@ -454,6 +454,7 @@ async function readGuidanceFile(projectDir: string, filename: string): Promise<s
   }
   return undefined;
 }
+
 
 function readObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};

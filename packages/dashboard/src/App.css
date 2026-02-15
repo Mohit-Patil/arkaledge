@@ -139,9 +139,24 @@ body::before {
 /* Team Panel */
 .team-panel {
   grid-column: 3;
+  overflow-y: auto;
 }
 
 /* Task Card Assignee */
+.task-card {
+  outline: none;
+}
+
+.task-card.selected {
+  border-color: var(--accent-info);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+}
+
+.task-card:focus-visible {
+  border-color: var(--accent-info);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+}
+
 .task-card .assignee {
   margin-top: 4px;
   font-size: 10px;
@@ -155,6 +170,96 @@ body::before {
   color: var(--accent-secondary);
   opacity: 0.8;
   letter-spacing: 0.5px;
+}
+
+.task-card .task-artifacts {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artifact-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--accent-info);
+  font-size: 10px;
+  border: 1px dashed var(--border-color);
+  padding: 2px 6px;
+  transition: all 0.2s ease;
+}
+
+.artifact-link:hover {
+  color: var(--bg-primary);
+  background: var(--accent-info);
+  border-color: var(--accent-info);
+}
+
+.artifact-more {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* Feed Item */
+.feed-item {
+  margin-bottom: 12px;
+}
+
+.feed-item-links {
+  margin-top: 6px;
+  margin-left: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.event-task-jump {
+  width: fit-content;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--accent-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.event-task-jump:hover {
+  border-color: var(--accent-secondary);
+  color: var(--bg-primary);
+  background: var(--accent-secondary);
+}
+
+.panel-header-spaced {
+  margin-top: 24px;
+}
+
+.selected-task-panel {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+}
+
+.selected-task-title {
+  margin: 8px 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.selected-task-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.selected-task-empty {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 
 /* Progress Block */
@@ -197,4 +302,35 @@ body::before {
 
 .footer span {
   opacity: 0.7;
+}
+
+@media (max-width: 1200px) {
+  .main-container {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-panel,
+  .kanban-panel,
+  .team-panel {
+    grid-column: 1;
+  }
+
+  .kanban-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .header,
+  .footer {
+    padding: 10px 12px;
+  }
+
+  .main-container {
+    gap: 0;
+  }
+
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
 }

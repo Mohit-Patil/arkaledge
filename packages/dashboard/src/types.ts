@@ -1,11 +1,24 @@
 export type TaskStatus = "backlog" | "in_progress" | "review" | "done" | "blocked";
 export type TaskPriority = "high" | "medium" | "low";
+export type ArtifactKind = "worktree" | "ui" | "file" | string;
+
+export interface Artifact {
+  kind: ArtifactKind;
+  label: string;
+  url: string;
+  relativePath?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  createdAt?: number;
+  metadata?: Record<string, unknown>;
+}
 
 export interface TaskEvent {
   timestamp: number;
   agentId: string;
   action: string;
   detail?: string;
+  artifacts?: Artifact[];
 }
 
 export interface Task {
@@ -23,6 +36,7 @@ export interface Task {
   createdBy: string;
   reviewComments?: string[];
   dependsOn?: string[];
+  artifacts?: Artifact[];
 }
 
 export type EventType =
@@ -39,6 +53,23 @@ export type EventType =
   | "project:started"
   | "project:completed";
 
+export interface AgentEventData {
+  taskId?: string;
+  title?: string;
+  status?: TaskStatus;
+  previousStatus?: string;
+  action?: string;
+  retry?: number;
+  branch?: string;
+  worktree?: string;
+  reason?: string;
+  error?: string;
+  messageType?: string;
+  timeoutKind?: string;
+  artifacts?: Artifact[];
+  [key: string]: unknown;
+}
+
 export interface AgentEvent {
   type: EventType;
   agentId: string;
@@ -46,5 +77,5 @@ export interface AgentEvent {
   timestamp: number;
   summary: string;
   detail?: string;
-  data?: Record<string, unknown>;
+  data?: AgentEventData;
 }

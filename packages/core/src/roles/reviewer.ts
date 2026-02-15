@@ -202,10 +202,13 @@ Read the relevant files in the task worktree, validate acceptance criteria, and 
     }
 
     if (verdict === "approved") {
+      const preserveWorktreeForUi = shouldPreserveWorktreeForUi(task);
       if (this.autoMerge) {
         try {
           await this.worktreeManager.mergeToMain(task.branch);
-          await this.worktreeManager.removeWorktree(task.id);
+          if (!preserveWorktreeForUi) {
+            await this.worktreeManager.removeWorktree(task.id);
+          }
         } catch (error) {
           const detail = error instanceof Error ? error.message : String(error);
           await this.kanban.moveTask(task.id, "blocked", this.runtime.id, `Merge/cleanup failed: ${detail}`);
@@ -222,8 +225,27 @@ Read the relevant files in the task worktree, validate acceptance criteria, and 
           return "rejected";
         }
 
-        await this.kanban.updateTask(task.id, { worktree: undefined });
-        await this.kanban.moveTask(task.id, "done", this.runtime.id, "Review approved and merged to main");
+        if (!preserveWorktreeForUi) {
+          await this.kanban.updateTask(task.id, { worktree: undefined });
+        } else {
+          this.eventBus.emit({
+            type: "agent:message",
+            agentId: this.runtime.id,
+            agentRole: "reviewer",
+            timestamp: Date.now(),
+            summary: `Preserving worktree for UI artifacts: ${task.title}`,
+            data: { taskId: task.id, worktree: task.worktree },
+          });
+        }
+
+        await this.kanban.moveTask(
+          task.id,
+          "done",
+          this.runtime.id,
+          preserveWorktreeForUi
+            ? "Review approved and merged to main (worktree preserved for UI artifacts)"
+            : "Review approved and merged to main",
+        );
       } else {
         await this.kanban.moveTask(task.id, "done", this.runtime.id, "Review approved (manual merge required)");
       }
@@ -268,4 +290,9 @@ function extractJson(text: string): string {
   if (objMatch) return objMatch[0];
 
   return text.trim();
+}
+
+function shouldPreserveWorktreeForUi(task: Task): boolean {
+  if (!task.worktree) return false;
+  return (task.artifacts ?? []).some((artifact) => artifact.kind === "ui");
 }

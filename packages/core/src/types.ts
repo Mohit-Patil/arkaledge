@@ -60,6 +60,19 @@ export interface TaskEvent {
   detail?: string;
 }
 
+export type TaskArtifactKind = "worktree" | "ui" | "file";
+
+export interface TaskArtifact {
+  kind: TaskArtifactKind;
+  label: string;
+  relativePath: string;
+  url: string;
+  contentType?: string;
+  sizeBytes?: number;
+  createdAt: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -77,6 +90,7 @@ export interface Task {
   reviewComments?: string[];
   dependsOn?: string[];
   contextFingerprint?: string;
+  artifacts?: TaskArtifact[];
 }
 
 export interface KanbanState {
@@ -151,15 +165,34 @@ export type EventType =
   | "project:started"
   | "project:completed";
 
-export interface AgentEvent {
+export interface AgentCompletedEventData extends Record<string, unknown> {
+  taskId?: string;
+  branch?: string;
+  worktree?: string;
+  executionReport?: TaskExecutionReport | null;
+  artifacts?: TaskArtifact[];
+}
+
+interface BaseAgentEvent {
   type: EventType;
   agentId: string;
   agentRole: string;
   timestamp: number;
   summary: string;
   detail?: string;
+}
+
+export interface AgentCompletedEvent extends BaseAgentEvent {
+  type: "agent:completed";
+  data?: AgentCompletedEventData;
+}
+
+export interface GenericAgentEvent extends BaseAgentEvent {
+  type: Exclude<EventType, "agent:completed">;
   data?: Record<string, unknown>;
 }
+
+export type AgentEvent = AgentCompletedEvent | GenericAgentEvent;
 
 // ─── Zod Schemas for Config Validation ───
 

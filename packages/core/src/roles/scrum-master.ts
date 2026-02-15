@@ -251,11 +251,29 @@ export class ScrumMasterRole {
 
           try {
             await this.worktreeManager.mergeToMain(task.branch);
-            if (task.worktree) {
+            const preserveWorktreeForUi = shouldPreserveWorktreeForUi(task);
+            if (task.worktree && !preserveWorktreeForUi) {
               await this.worktreeManager.removeWorktree(task.id);
               await this.kanban.updateTask(task.id, { worktree: undefined });
             }
-            await this.kanban.moveTask(task.id, "done", "scrum-master", "Auto-approved and merged to main");
+            if (preserveWorktreeForUi) {
+              this.eventBus.emit({
+                type: "agent:message",
+                agentId: "scrum-master",
+                agentRole: "scrum-master",
+                timestamp: Date.now(),
+                summary: `Preserving worktree for UI artifacts: ${task.title}`,
+                data: { taskId: task.id, worktree: task.worktree },
+              });
+            }
+            await this.kanban.moveTask(
+              task.id,
+              "done",
+              "scrum-master",
+              preserveWorktreeForUi
+                ? "Auto-approved and merged to main (worktree preserved for UI artifacts)"
+                : "Auto-approved and merged to main",
+            );
           } catch (error) {
             await this.kanban.moveTask(
               task.id,
@@ -431,6 +449,11 @@ function buildTaskBranchName(task: Task): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
   return `task/${task.id}${slug ? `-${slug}` : ""}`;
+}
+
+function shouldPreserveWorktreeForUi(task: Task): boolean {
+  if (!task.worktree) return false;
+  return (task.artifacts ?? []).some((artifact) => artifact.kind === "ui");
 }
 
 function sleep(ms: number): Promise<void> {

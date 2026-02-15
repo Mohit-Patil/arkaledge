@@ -1,19 +1,24 @@
 import { execFile } from "node:child_process";
+import { stat } from "node:fs/promises";
+import { basename, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
 import { consumeStreamWithWatchdog, RuntimeWatchdogError } from "../runtime-watchdog.js";
 import type {
+  AgentCompletedEventData,
   AgentMessage,
   SharedProjectContext,
   Task,
+  TaskArtifact,
   TaskExecutionReport,
 } from "../types.js";
 
 const execFileAsync = promisify(execFile);
 const ENGINEER_IDLE_TIMEOUT_MS = 120_000;
 const ENGINEER_TOTAL_TIMEOUT_MS = 15 * 60_000;
+const UI_FILE_EXTENSIONS = new Set([".html", ".htm"]);
 
 const ENGINEER_SYSTEM_PROMPT = `You are a software engineer. Your job is to implement the given task completely.
 
@@ -75,7 +80,8 @@ export class EngineerRole {
 
   async executeTask(task: Task, _projectDir: string, maxRetries: number): Promise<boolean> {
     const workingDirectory = task.worktree;
-    if (!workingDirectory || !task.branch) {
+    const taskBranch = task.branch;
+    if (!workingDirectory || !taskBranch) {
       await this.kanban.moveTask(
         task.id,
         "blocked",
@@ -100,7 +106,7 @@ export class EngineerRole {
       agentRole: "engineer",
       timestamp: Date.now(),
       summary: `Engineer starting: ${task.title}`,
-      data: { taskId: task.id, worktree: workingDirectory, branch: task.branch },
+      data: { taskId: task.id, worktree: workingDirectory, branch: taskBranch },
     });
 
     const userPrompt = buildTaskPrompt(task, this.sharedContext);
@@ -163,7 +169,33 @@ export class EngineerRole {
         return false;
       }
 
+      let artifacts: TaskArtifact[] | undefined;
+      try {
+        artifacts = await this.buildTaskArtifacts(task.id, taskBranch, workingDirectory, lastReport);
+        await this.kanban.updateTask(task.id, { artifacts });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.eventBus.emit({
+          type: "agent:message",
+          agentId: this.runtime.id,
+          agentRole: "engineer",
+          timestamp: Date.now(),
+          summary: `Artifact indexing skipped for ${task.id}: ${detail.slice(0, 160)}`,
+          data: { taskId: task.id, error: detail },
+        });
+      }
+
       await this.kanban.moveTask(task.id, "review", this.runtime.id, "Implementation complete, moving to review");
+
+      const completedData: AgentCompletedEventData = {
+        taskId: task.id,
+        branch: taskBranch,
+        worktree: workingDirectory,
+        executionReport: lastReport,
+      };
+      if (artifacts) {
+        completedData.artifacts = artifacts;
+      }
 
       this.eventBus.emit({
         type: "agent:completed",
@@ -171,12 +203,7 @@ export class EngineerRole {
         agentRole: "engineer",
         timestamp: Date.now(),
         summary: `Engineer completed: ${task.title}`,
-        data: {
-          taskId: task.id,
-          branch: task.branch,
-          worktree: workingDirectory,
-          executionReport: lastReport,
-        },
+        data: completedData,
       });
     } else {
       await this.kanban.moveTask(task.id, "blocked", this.runtime.id, `Failed after ${maxRetries} retries`);
@@ -382,6 +409,45 @@ export class EngineerRole {
     return { success: true, detail: "Created task commit" };
   }
 
+  private async buildTaskArtifacts(
+    taskId: string,
+    branch: string,
+    workingDirectory: string,
+    report: TaskExecutionReport | null,
+  ): Promise<TaskArtifact[]> {
+    const createdAt = Date.now();
+    const artifacts: TaskArtifact[] = [
+      {
+        kind: "worktree",
+        label: "Task worktree",
+        relativePath: ".",
+        url: buildWorktreeUrl(taskId),
+        createdAt,
+        metadata: { taskId, branch },
+      },
+    ];
+
+    const candidatePaths = new Set<string>(["index.html"]);
+    if (report) {
+      for (const changedPath of report.filesChanged) {
+        const normalized = normalizePathForWorktree(changedPath, workingDirectory);
+        if (normalized) {
+          candidatePaths.add(normalized);
+        }
+      }
+    }
+
+    for (const relativePath of candidatePaths) {
+      if (!isHtmlPath(relativePath)) continue;
+      const artifact = await createUiArtifact(taskId, workingDirectory, relativePath, createdAt);
+      if (artifact) {
+        artifacts.push(artifact);
+      }
+    }
+
+    return artifacts;
+  }
+
   private async countBranchCommits(workingDirectory: string, branchName: string): Promise<number> {
     const output = await this.runGit(workingDirectory, ["rev-list", "--count", `main..${branchName}`]);
     const parsed = Number.parseInt(output.trim(), 10);
@@ -526,4 +592,104 @@ function extractTaskExecutionReport(output: string): TaskExecutionReport | null 
   } catch {
     return null;
   }
+}
+
+function createTaskWorktreeRoute(taskId: string, relativePath?: string): string {
+  const encodedTaskId = encodeURIComponent(taskId);
+  if (!relativePath || relativePath === ".") {
+    return `/api/tasks/${encodedTaskId}/worktree/`;
+  }
+
+  const encodedPath = relativePath
+    .split("/")
+    .filter((segment) => segment.length > 0 && segment !== ".")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `/api/tasks/${encodedTaskId}/worktree/${encodedPath}`;
+}
+
+function buildWorktreeUrl(taskId: string): string {
+  return createTaskWorktreeRoute(taskId);
+}
+
+function normalizePathForWorktree(filePath: string, workingDirectory: string): string | null {
+  const trimmed = filePath.trim();
+  if (!trimmed) return null;
+
+  const absolutePath = isAbsolute(trimmed)
+    ? resolve(trimmed)
+    : resolve(workingDirectory, trimmed);
+  const relativePath = relative(workingDirectory, absolutePath);
+  if (!isSafeRelativePath(relativePath)) return null;
+  return toPosixPath(relativePath);
+}
+
+function normalizeArtifactPath(relativePath: string): string | null {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "").replace(/^\.\/+/, "");
+  if (!normalized) return null;
+
+  const parts = normalized.split("/").filter((part) => part.length > 0 && part !== ".");
+  if (parts.length === 0 || parts.some((part) => part === "..")) {
+    return null;
+  }
+
+  return parts.join("/");
+}
+
+function toPosixPath(filePath: string): string {
+  if (sep === "/") return filePath;
+  return filePath.split(sep).join("/");
+}
+
+function isSafeRelativePath(filePath: string): boolean {
+  if (!filePath || filePath === ".") return false;
+  if (isAbsolute(filePath)) return false;
+  return !filePath.startsWith("..");
+}
+
+function isHtmlPath(filePath: string): boolean {
+  const extension = extname(filePath).toLowerCase();
+  return UI_FILE_EXTENSIONS.has(extension);
+}
+
+async function createUiArtifact(
+  taskId: string,
+  workingDirectory: string,
+  relativePath: string,
+  createdAt: number,
+): Promise<TaskArtifact | null> {
+  const normalizedPath = normalizeArtifactPath(relativePath);
+  if (!normalizedPath || !isHtmlPath(normalizedPath)) {
+    return null;
+  }
+
+  const absolutePath = resolve(workingDirectory, normalizedPath);
+  const relFromWorktree = relative(workingDirectory, absolutePath);
+  if (!isSafeRelativePath(relFromWorktree)) {
+    return null;
+  }
+
+  let fileStats;
+  try {
+    fileStats = await stat(absolutePath);
+  } catch {
+    return null;
+  }
+
+  if (!fileStats.isFile()) {
+    return null;
+  }
+
+  const isEntrypoint = basename(normalizedPath).toLowerCase() === "index.html";
+  return {
+    kind: "ui",
+    label: isEntrypoint ? "Generated UI" : `UI: ${normalizedPath}`,
+    relativePath: normalizedPath,
+    url: createTaskWorktreeRoute(taskId, normalizedPath),
+    contentType: "text/html",
+    sizeBytes: fileStats.size,
+    createdAt,
+    metadata: { entrypoint: isEntrypoint },
+  };
 }

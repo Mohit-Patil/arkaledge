@@ -10,6 +10,8 @@ export type {
   TaskStatus,
   TaskPriority,
   TaskEvent,
+  TaskArtifactKind,
+  TaskArtifact,
   Task,
   KanbanState,
   WorkflowConfig,
@@ -18,6 +20,9 @@ export type {
   ProjectContext,
   SharedProjectContext,
   EventType,
+  AgentCompletedEventData,
+  AgentCompletedEvent,
+  GenericAgentEvent,
   AgentEvent,
 } from "./types.js";
 

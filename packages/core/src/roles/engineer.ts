@@ -3,9 +3,17 @@ import { promisify } from "node:util";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
-import type { AgentMessage, SharedProjectContext, Task } from "../types.js";
+import { consumeStreamWithWatchdog, RuntimeWatchdogError } from "../runtime-watchdog.js";
+import type {
+  AgentMessage,
+  SharedProjectContext,
+  Task,
+  TaskExecutionReport,
+} from "../types.js";
 
 const execFileAsync = promisify(execFile);
+const ENGINEER_IDLE_TIMEOUT_MS = 120_000;
+const ENGINEER_TOTAL_TIMEOUT_MS = 15 * 60_000;
 
 const ENGINEER_SYSTEM_PROMPT = `You are a software engineer. Your job is to implement the given task completely.
 
@@ -25,7 +33,11 @@ QUALITY STANDARDS (adapt to the project's stack):
 - TypeScript projects: use proper typing (no \`any\`), explicit annotations, no non-null assertions
 - JavaScript projects: validate inputs, use clear variable names, handle edge cases
 
-Do NOT output JSON — just implement the task by writing code and running tests.`;
+At the very end, output:
+1) A line containing exactly: FINAL_TASK_RESULT_JSON
+2) A single-line JSON object with shape:
+   {"status":"success|failed","testsRun":[{"command":"...","exitCode":0}],"filesChanged":["..."],"commitCreated":true|false,"summary":"..."}
+Do NOT include markdown fences around this final JSON object.`;
 
 /** Test failure indicators to scan for in agent output. */
 const FAILURE_PATTERNS = [
@@ -33,6 +45,7 @@ const FAILURE_PATTERNS = [
   /exited with code [1-9]\d*/i,
   /Claude Code process exited with code/i,
   /Codex Exec exited with code/i,
+  /Runtime stream (idle|total) timeout/i,
   /You've hit your limit/i,
   /rate limit/i,
   /Tests?\s+failed/i,
@@ -97,8 +110,9 @@ export class EngineerRole {
     const result = await this.runAndCollect(userPrompt, workingDirectory);
     let lastOutput = result.output;
     let lastDiagnostics = result.diagnostics;
+    let lastReport = extractTaskExecutionReport(lastOutput);
     sessionId = result.sessionId;
-    let success = !hasTestFailures(lastDiagnostics);
+    let success = evaluateTaskSuccess(lastDiagnostics, lastReport);
 
     // Self-correction loop
     let retries = 0;
@@ -123,8 +137,9 @@ export class EngineerRole {
 
       lastOutput = retryResult.output;
       lastDiagnostics = retryResult.diagnostics;
+      lastReport = extractTaskExecutionReport(lastOutput);
       sessionId = retryResult.sessionId;
-      success = !hasTestFailures(lastDiagnostics);
+      success = evaluateTaskSuccess(lastDiagnostics, lastReport);
     }
 
     if (success) {
@@ -143,7 +158,7 @@ export class EngineerRole {
           agentRole: "engineer",
           timestamp: Date.now(),
           summary: `Engineer blocked on: ${task.title} (commit enforcement failed)`,
-          data: { taskId: task.id, reason: commitResult.detail },
+          data: { taskId: task.id, reason: commitResult.detail, executionReport: lastReport },
         });
         return false;
       }
@@ -156,7 +171,12 @@ export class EngineerRole {
         agentRole: "engineer",
         timestamp: Date.now(),
         summary: `Engineer completed: ${task.title}`,
-        data: { taskId: task.id, branch: task.branch, worktree: workingDirectory },
+        data: {
+          taskId: task.id,
+          branch: task.branch,
+          worktree: workingDirectory,
+          executionReport: lastReport,
+        },
       });
     } else {
       await this.kanban.moveTask(task.id, "blocked", this.runtime.id, `Failed after ${maxRetries} retries`);
@@ -167,7 +187,11 @@ export class EngineerRole {
         agentRole: "engineer",
         timestamp: Date.now(),
         summary: `Engineer blocked on: ${task.title} (${maxRetries} retries exhausted)`,
-        data: { taskId: task.id, lastOutput: lastOutput.slice(-500) },
+        data: {
+          taskId: task.id,
+          lastOutput: lastOutput.slice(-500),
+          executionReport: lastReport,
+        },
       });
     }
 
@@ -182,21 +206,46 @@ export class EngineerRole {
     let diagnostics = "";
     let sessionId: string | undefined;
 
-    for await (const message of this.runtime.run(prompt, {
-      systemPrompt: ENGINEER_SYSTEM_PROMPT,
-      workingDirectory,
-    })) {
-      output += messageToString(message);
-      diagnostics += messageToDiagnosticString(message);
-      sessionId = extractSessionId(message);
+    try {
+      await consumeStreamWithWatchdog(
+        this.runtime.run(prompt, {
+          systemPrompt: ENGINEER_SYSTEM_PROMPT,
+          workingDirectory,
+        }),
+        {
+          idleTimeoutMs: ENGINEER_IDLE_TIMEOUT_MS,
+          totalTimeoutMs: ENGINEER_TOTAL_TIMEOUT_MS,
+          onMessage: (message) => {
+            output += messageToString(message);
+            diagnostics += messageToDiagnosticString(message);
+            sessionId = extractSessionId(message);
 
+            this.eventBus.emit({
+              type: "agent:message",
+              agentId: this.runtime.id,
+              agentRole: "engineer",
+              timestamp: Date.now(),
+              summary: message.content.slice(0, 200),
+              data: { messageType: message.type },
+            });
+          },
+        },
+      );
+    } catch (error) {
+      await this.runtime.abort();
+      const detail = error instanceof Error ? error.message : String(error);
+      output += `${detail}\n`;
+      diagnostics += `${detail}\n`;
       this.eventBus.emit({
         type: "agent:message",
         agentId: this.runtime.id,
         agentRole: "engineer",
         timestamp: Date.now(),
-        summary: message.content.slice(0, 200),
-        data: { messageType: message.type },
+        summary: `Engineer stream watchdog triggered: ${detail.slice(0, 160)}`,
+        data: {
+          messageType: "watchdog",
+          timeoutKind: error instanceof RuntimeWatchdogError ? error.kind : "unknown",
+        },
       });
     }
 
@@ -212,19 +261,44 @@ export class EngineerRole {
     let diagnostics = "";
     let newSessionId: string | undefined = sessionId;
 
-    for await (const message of this.runtime.resume(sessionId, prompt, { workingDirectory })) {
-      output += messageToString(message);
-      diagnostics += messageToDiagnosticString(message);
-      const sid = extractSessionId(message);
-      if (sid) newSessionId = sid;
+    try {
+      await consumeStreamWithWatchdog(
+        this.runtime.resume(sessionId, prompt, { workingDirectory }),
+        {
+          idleTimeoutMs: ENGINEER_IDLE_TIMEOUT_MS,
+          totalTimeoutMs: ENGINEER_TOTAL_TIMEOUT_MS,
+          onMessage: (message) => {
+            output += messageToString(message);
+            diagnostics += messageToDiagnosticString(message);
+            const sid = extractSessionId(message);
+            if (sid) newSessionId = sid;
 
+            this.eventBus.emit({
+              type: "agent:message",
+              agentId: this.runtime.id,
+              agentRole: "engineer",
+              timestamp: Date.now(),
+              summary: message.content.slice(0, 200),
+              data: { messageType: message.type },
+            });
+          },
+        },
+      );
+    } catch (error) {
+      await this.runtime.abort();
+      const detail = error instanceof Error ? error.message : String(error);
+      output += `${detail}\n`;
+      diagnostics += `${detail}\n`;
       this.eventBus.emit({
         type: "agent:message",
         agentId: this.runtime.id,
         agentRole: "engineer",
         timestamp: Date.now(),
-        summary: message.content.slice(0, 200),
-        data: { messageType: message.type },
+        summary: `Engineer resume watchdog triggered: ${detail.slice(0, 160)}`,
+        data: {
+          messageType: "watchdog",
+          timeoutKind: error instanceof RuntimeWatchdogError ? error.kind : "unknown",
+        },
       });
     }
 
@@ -373,11 +447,22 @@ ${contextBlock}
 
 You are operating in task worktree: ${task.worktree ?? "UNKNOWN"} on branch: ${task.branch ?? "UNKNOWN"}.
 Write the implementation code and tests. Run the tests to verify everything works.
-When complete, ensure your changes are committed to the task branch.`;
+When complete, ensure your changes are committed to the task branch.
+
+End your response with:
+FINAL_TASK_RESULT_JSON
+{"status":"success|failed","testsRun":[{"command":"...","exitCode":0}],"filesChanged":["..."],"commitCreated":true|false,"summary":"..."}
+`;
 }
 
 function hasTestFailures(output: string): boolean {
   return FAILURE_PATTERNS.some((pattern) => pattern.test(output));
+}
+
+function evaluateTaskSuccess(diagnostics: string, report: TaskExecutionReport | null): boolean {
+  if (hasTestFailures(diagnostics)) return false;
+  if (!report) return true;
+  return report.status === "success";
 }
 
 function messageToString(msg: AgentMessage): string {
@@ -396,4 +481,49 @@ function messageToDiagnosticString(msg: AgentMessage): string {
 
 function extractSessionId(msg: AgentMessage): string | undefined {
   return msg.metadata?.["sessionId"] as string | undefined;
+}
+
+function extractTaskExecutionReport(output: string): TaskExecutionReport | null {
+  const marker = "FINAL_TASK_RESULT_JSON";
+  const idx = output.lastIndexOf(marker);
+  if (idx < 0) return null;
+
+  const afterMarker = output.slice(idx + marker.length).trim();
+  if (!afterMarker) return null;
+
+  const firstLine = afterMarker.split("\n")[0]?.trim();
+  if (!firstLine) return null;
+
+  try {
+    const parsed = JSON.parse(firstLine) as Partial<TaskExecutionReport>;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.status !== "success" && parsed.status !== "failed") return null;
+    if (!Array.isArray(parsed.testsRun) || !Array.isArray(parsed.filesChanged)) return null;
+    if (typeof parsed.commitCreated !== "boolean") return null;
+    if (typeof parsed.summary !== "string") return null;
+
+    const testsRun = parsed.testsRun
+      .filter((entry): entry is { command: string; exitCode: number } => (
+        !!entry
+        && typeof entry === "object"
+        && typeof (entry as { command?: unknown }).command === "string"
+        && typeof (entry as { exitCode?: unknown }).exitCode === "number"
+      ))
+      .map((entry) => ({
+        command: entry.command,
+        exitCode: entry.exitCode,
+      }));
+
+    const filesChanged = parsed.filesChanged.filter((file): file is string => typeof file === "string");
+
+    return {
+      status: parsed.status,
+      testsRun,
+      filesChanged,
+      commitCreated: parsed.commitCreated,
+      summary: parsed.summary,
+    };
+  } catch {
+    return null;
+  }
 }

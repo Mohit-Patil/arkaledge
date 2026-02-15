@@ -2,6 +2,7 @@
 export type {
   AgentMessage,
   AgentRunResult,
+  TaskExecutionReport,
   RunOptions,
   SdkType,
   AgentRole,
@@ -38,6 +39,12 @@ export { loadConfig, defaultConfig } from "./config-loader.js";
 
 // Event Bus
 export { EventBus, globalEventBus } from "./event-bus.js";
+export {
+  AgentHealthRegistry,
+  type AgentHealthRecord,
+  type AgentHealthStatus,
+} from "./agent-health.js";
+export { consumeStreamWithWatchdog, RuntimeWatchdogError } from "./runtime-watchdog.js";
 
 // Plugins
 export type { ArkaledgePlugin, PluginTool } from "./plugins/plugin-types.js";

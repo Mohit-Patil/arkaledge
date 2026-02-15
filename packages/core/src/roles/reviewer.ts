@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import type { EventBus } from "../event-bus.js";
 import type { KanbanManager } from "../kanban.js";
+import { consumeStreamWithWatchdog, RuntimeWatchdogError } from "../runtime-watchdog.js";
 import type { SharedProjectContext, Task } from "../types.js";
 import type { WorktreeManager } from "../worktree-manager.js";
 
@@ -11,6 +12,8 @@ const verdictSchema = z.object({
 });
 
 const DIFF_CHAR_LIMIT = 20000;
+const REVIEWER_IDLE_TIMEOUT_MS = 120_000;
+const REVIEWER_TOTAL_TIMEOUT_MS = 10 * 60_000;
 
 const REVIEWER_SYSTEM_PROMPT = `You are a code reviewer. Review the implementation for the given task.
 
@@ -131,23 +134,55 @@ ${trimmedDiff || "(No diff output)"}
 ${reviewHistory ? `**Previous Review Feedback:**\n${reviewHistory}\n` : ""}
 Read the relevant files in the task worktree, validate acceptance criteria, and run tests if they exist.`;
 
-    // Collect agent output
+    // Collect agent output with watchdog protection.
     let fullOutput = "";
-    for await (const message of this.runtime.run(userPrompt, {
-      systemPrompt: REVIEWER_SYSTEM_PROMPT,
-      workingDirectory: task.worktree ?? projectDir,
-    })) {
-      if (message.type === "text") {
-        fullOutput += message.content;
-      }
+    try {
+      await consumeStreamWithWatchdog(
+        this.runtime.run(userPrompt, {
+          systemPrompt: REVIEWER_SYSTEM_PROMPT,
+          workingDirectory: task.worktree ?? projectDir,
+        }),
+        {
+          idleTimeoutMs: REVIEWER_IDLE_TIMEOUT_MS,
+          totalTimeoutMs: REVIEWER_TOTAL_TIMEOUT_MS,
+          onMessage: (message) => {
+            if (message.type === "text") {
+              fullOutput += message.content;
+            }
+            this.eventBus.emit({
+              type: "agent:message",
+              agentId: this.runtime.id,
+              agentRole: "reviewer",
+              timestamp: Date.now(),
+              summary: message.content.slice(0, 200),
+              data: { messageType: message.type },
+            });
+          },
+        },
+      );
+    } catch (error) {
+      await this.runtime.abort();
+      const detail = error instanceof Error ? error.message : String(error);
+      await this.kanban.moveTask(
+        task.id,
+        "blocked",
+        this.runtime.id,
+        `Review watchdog timeout/failure: ${detail}`,
+      );
       this.eventBus.emit({
-        type: "agent:message",
+        type: "agent:error",
         agentId: this.runtime.id,
         agentRole: "reviewer",
         timestamp: Date.now(),
-        summary: message.content.slice(0, 200),
-        data: { messageType: message.type },
+        summary: `Review failed: ${task.title} (watchdog timeout/failure)`,
+        data: {
+          taskId: task.id,
+          branch: task.branch,
+          error: detail,
+          timeoutKind: error instanceof RuntimeWatchdogError ? error.kind : "unknown",
+        },
       });
+      return "rejected";
     }
 
     // Parse the verdict

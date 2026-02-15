@@ -1,14 +1,28 @@
 import type { AgentRuntime } from "../agents/agent-runtime.js";
+import { AgentHealthRegistry } from "../agent-health.js";
 import type { EventBus } from "../event-bus.js";
 import { FailureHandler } from "../failure-handler.js";
 import type { KanbanManager } from "../kanban.js";
-import type { AgentConfig, SharedProjectContext, WorkflowConfig } from "../types.js";
+import { consumeStreamWithWatchdog } from "../runtime-watchdog.js";
+import type { AgentConfig, AgentMessage, SharedProjectContext, WorkflowConfig } from "../types.js";
 import type { Task } from "../types.js";
 import type { WorktreeManager } from "../worktree-manager.js";
 import { EngineerRole } from "./engineer.js";
 import { ReviewerRole } from "./reviewer.js";
 
 const POLL_INTERVAL_MS = 2000;
+const HEALTH_PROBE_IDLE_TIMEOUT_MS = 25_000;
+const HEALTH_PROBE_TOTAL_TIMEOUT_MS = 40_000;
+const HEALTH_PROBE_SYSTEM_PROMPT = "You are a harness health probe. Reply with exactly HEALTH_OK.";
+const HEALTH_PROBE_PROMPT = "Reply exactly with HEALTH_OK and no other text.";
+const PROBE_FAILURE_PATTERNS = [
+  /you've hit your limit/i,
+  /rate limit/i,
+  /not supported/i,
+  /unauthorized|forbidden|invalid api key|authentication/i,
+  /exited with code [1-9]\d*/i,
+  /process exited with code/i,
+];
 
 /**
  * Coordination loop: assigns tasks to idle engineers, triggers reviews,
@@ -20,6 +34,7 @@ export class ScrumMasterRole {
   private activeWork = new Map<string, Promise<void>>();
   private activeReviewTasks = new Set<string>();
   private failureHandler: FailureHandler;
+  private healthRegistry: AgentHealthRegistry;
 
   constructor(
     private engineers: Map<string, { runtime: AgentRuntime; config: AgentConfig }>,
@@ -31,6 +46,7 @@ export class ScrumMasterRole {
   ) {
     this.idleEngineers = new Set(engineers.keys());
     this.failureHandler = new FailureHandler(kanban, eventBus, workflowConfig.max_retries);
+    this.healthRegistry = new AgentHealthRegistry([...engineers.keys()]);
   }
 
   async run(projectDir: string): Promise<void> {
@@ -42,7 +58,11 @@ export class ScrumMasterRole {
       summary: "Scrum Master starting coordination loop",
     });
 
+    await this.preflightEngineerHealth(projectDir);
+
     while (!this.stopped) {
+      await this.refreshEngineerHealth(projectDir);
+
       const tasks = await this.kanban.getAllTasks();
 
       // 1. Handle blocked tasks before checking exit conditions
@@ -84,11 +104,18 @@ export class ScrumMasterRole {
       for (const task of schedulableTasks) {
         if (this.idleEngineers.size === 0) break;
 
-        const engineerId = task.assignee && this.idleEngineers.has(task.assignee)
-          ? task.assignee
-          : this.idleEngineers.values().next().value;
-
-        if (!engineerId) break;
+        const engineerId = this.pickSchedulableEngineer(task.assignee);
+        if (!engineerId) {
+          this.eventBus.emit({
+            type: "agent:message",
+            agentId: "scrum-master",
+            agentRole: "scrum-master",
+            timestamp: Date.now(),
+            summary: `No healthy engineer available for "${task.title}" — waiting for probe recovery`,
+            data: { taskId: task.id },
+          });
+          continue;
+        }
 
         this.idleEngineers.delete(engineerId);
 
@@ -127,11 +154,16 @@ export class ScrumMasterRole {
 
         const workPromise = engineerRole
           .executeTask(runnableTask, projectDir, this.workflowConfig.max_retries)
-          .then(() => {
+          .then((success) => {
+            if (success) {
+              this.healthRegistry.markHealthy(engineerId);
+            }
             this.activeWork.delete(engineerId);
             this.idleEngineers.add(engineerId);
           })
           .catch((err) => {
+            const detail = err instanceof Error ? err.message : String(err);
+            this.healthRegistry.markRuntimeCrash(engineerId, detail);
             this.activeWork.delete(engineerId);
             this.idleEngineers.add(engineerId);
             this.eventBus.emit({
@@ -139,7 +171,7 @@ export class ScrumMasterRole {
               agentId: engineerId,
               agentRole: "engineer",
               timestamp: Date.now(),
-              summary: `Engineer ${engineerId} crashed: ${err instanceof Error ? err.message : String(err)}`,
+              summary: `Engineer ${engineerId} crashed: ${detail}`,
             });
           });
 
@@ -152,7 +184,7 @@ export class ScrumMasterRole {
 
         for (const task of reviewTasks) {
           // Find an idle engineer who is NOT the author
-          const reviewerId = [...this.idleEngineers].find((id) => id !== task.assignee);
+          const reviewerId = this.pickSchedulableEngineer(undefined, new Set([task.assignee ?? ""]));
           if (!reviewerId) continue;
 
           this.idleEngineers.delete(reviewerId);
@@ -171,11 +203,14 @@ export class ScrumMasterRole {
           const reviewPromise = reviewerRole
             .reviewTask(task, projectDir)
             .then(() => {
+              this.healthRegistry.markHealthy(reviewerId);
               this.activeWork.delete(reviewerId);
               this.idleEngineers.add(reviewerId);
               this.activeReviewTasks.delete(task.id);
             })
             .catch((err) => {
+              const detail = err instanceof Error ? err.message : String(err);
+              this.healthRegistry.markRuntimeCrash(reviewerId, detail);
               this.activeWork.delete(reviewerId);
               this.idleEngineers.add(reviewerId);
               this.activeReviewTasks.delete(task.id);
@@ -184,7 +219,7 @@ export class ScrumMasterRole {
                 agentId: reviewerId,
                 agentRole: "reviewer",
                 timestamp: Date.now(),
-                summary: `Reviewer ${reviewerId} crashed: ${err instanceof Error ? err.message : String(err)}`,
+                summary: `Reviewer ${reviewerId} crashed: ${detail}`,
               });
             });
 
@@ -266,6 +301,116 @@ export class ScrumMasterRole {
     });
   }
 
+  private async preflightEngineerHealth(projectDir: string): Promise<void> {
+    const probes = [...this.engineers.entries()].map(([id, { runtime }]) => (
+      this.probeEngineerRuntime(id, runtime, projectDir, true)
+    ));
+    await Promise.allSettled(probes);
+  }
+
+  private async refreshEngineerHealth(projectDir: string): Promise<void> {
+    for (const [id, { runtime }] of this.engineers.entries()) {
+      if (!this.healthRegistry.shouldProbe(id)) continue;
+      this.healthRegistry.markPendingProbe(id);
+      await this.probeEngineerRuntime(id, runtime, projectDir, false);
+    }
+  }
+
+  private pickSchedulableEngineer(preferredId?: string, exclude = new Set<string>()): string | undefined {
+    if (
+      preferredId
+      && this.idleEngineers.has(preferredId)
+      && !exclude.has(preferredId)
+      && this.healthRegistry.isSchedulable(preferredId)
+      && !this.activeWork.has(preferredId)
+    ) {
+      return preferredId;
+    }
+
+    for (const id of this.idleEngineers) {
+      if (exclude.has(id)) continue;
+      if (this.activeWork.has(id)) continue;
+      if (!this.healthRegistry.isSchedulable(id)) continue;
+      return id;
+    }
+
+    return undefined;
+  }
+
+  private async probeEngineerRuntime(
+    engineerId: string,
+    runtime: AgentRuntime,
+    projectDir: string,
+    startup: boolean,
+  ): Promise<void> {
+    let transcript = "";
+    try {
+      await consumeStreamWithWatchdog(
+        runtime.run(HEALTH_PROBE_PROMPT, {
+          systemPrompt: HEALTH_PROBE_SYSTEM_PROMPT,
+          workingDirectory: projectDir,
+        }),
+        {
+          idleTimeoutMs: HEALTH_PROBE_IDLE_TIMEOUT_MS,
+          totalTimeoutMs: HEALTH_PROBE_TOTAL_TIMEOUT_MS,
+          onMessage: (message) => {
+            transcript += probeMessageText(message);
+          },
+        },
+      );
+    } catch (error) {
+      await runtime.abort();
+      const detail = error instanceof Error ? error.message : String(error);
+      const health = this.healthRegistry.markProbeFailure(engineerId, detail);
+      this.eventBus.emit({
+        type: "agent:error",
+        agentId: engineerId,
+        agentRole: "engineer",
+        timestamp: Date.now(),
+        summary: `Health probe failed for ${engineerId}: ${detail}`,
+        data: {
+          engineerId,
+          cooldownUntil: health.cooldownUntil,
+          startup,
+        },
+      });
+      return;
+    }
+
+    if (isUnhealthyProbeTranscript(transcript)) {
+      const health = this.healthRegistry.markProbeFailure(
+        engineerId,
+        transcript.slice(0, 300) || "Probe response indicated harness failure",
+      );
+      this.eventBus.emit({
+        type: "agent:error",
+        agentId: engineerId,
+        agentRole: "engineer",
+        timestamp: Date.now(),
+        summary: `Health probe marked ${engineerId} unavailable`,
+        data: {
+          engineerId,
+          reason: health.reason,
+          cooldownUntil: health.cooldownUntil,
+          startup,
+        },
+      });
+      return;
+    }
+
+    this.healthRegistry.markHealthy(engineerId);
+    this.eventBus.emit({
+      type: "agent:message",
+      agentId: engineerId,
+      agentRole: "engineer",
+      timestamp: Date.now(),
+      summary: startup
+        ? `Health probe passed for ${engineerId}`
+        : `Health probe recovery passed for ${engineerId}`,
+      data: { engineerId, startup },
+    });
+  }
+
   stop(): void {
     this.stopped = true;
   }
@@ -290,4 +435,17 @@ function buildTaskBranchName(task: Task): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function probeMessageText(message: AgentMessage): string {
+  if (message.type === "text" || message.type === "tool_result" || message.type === "error") {
+    return `${message.content}\n`;
+  }
+  return "";
+}
+
+function isUnhealthyProbeTranscript(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) return false;
+  return PROBE_FAILURE_PATTERNS.some((pattern) => pattern.test(normalized));
 }

@@ -16,6 +16,17 @@ export interface AgentRunResult {
   sessionId?: string;
 }
 
+export interface TaskExecutionReport {
+  status: "success" | "failed";
+  testsRun: Array<{
+    command: string;
+    exitCode: number;
+  }>;
+  filesChanged: string[];
+  commitCreated: boolean;
+  summary: string;
+}
+
 export interface RunOptions {
   systemPrompt: string;
   workingDirectory: string;

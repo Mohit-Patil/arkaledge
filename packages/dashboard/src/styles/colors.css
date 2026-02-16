@@ -27,7 +27,7 @@
 .panel {
   background: var(--bg-secondary);
   padding: 16px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .panel-header {

@@ -1,5 +1,9 @@
 # Implementation Plan
 
+See also:
+- `docs/NEXT.md`
+- `docs/plans/`
+
 ## Phase 1: Core Agent Abstraction (Complete)
 
 **Goal**: Run a single agent (either SDK) with a prompt, get streaming output.
@@ -10,12 +14,12 @@
 - [x] Implement `CodexAgentRuntime` (wraps `startThread().runStreamed()`)
 - [x] Implement `AgentFactory` -- creates runtime from config
 - [x] Implement `ConfigLoader` -- parses team YAML config
-- [x] CLI entry point: `arkaledge run --prompt "..." --sdk claude --model ...`
+- [x] CLI entry point: `node packages/cli/dist/index.js --prompt "..." --sdk claude --model ...`
 - [x] Basic types (`types.ts`)
 - [x] Event bus
 - [x] Plugin type definitions and loader
 
-**Verification**: Run `arkaledge run --prompt "Create a hello world Express app" --sdk claude` and `--sdk codex` -- both produce working code.
+**Verification**: Run `node packages/cli/dist/index.js --prompt "Create a hello world Express app" --sdk claude` and `--sdk codex` -- both produce working code.
 
 ---
 
@@ -82,11 +86,11 @@
 
 **Goal**: Users can add custom roles, tools, and workflows.
 
-- [ ] Plugin loader: discover + load plugins from config
+- [x] Plugin loader: discover + load plugins from config
 - [ ] Plugin tool injection: make plugin tools available to agents
 - [ ] Custom role support: define new roles via YAML config
 - [ ] Workflow customization: configurable Kanban columns + review gates
-- [ ] Example plugins: deploy-vercel, run-playwright
+- [ ] Example plugins (not yet included in this repository)
 
 **Verification**: Add a custom "QA Engineer" role via config with a Playwright plugin, see it participate in the workflow.
 
@@ -100,7 +104,7 @@
 | `@openai/codex-sdk` | latest | Codex agent runtime |
 | `react` + `vite` | current workspace versions | Dashboard UI |
 | `proper-lockfile` | ^4 | File-level locking for kanban.json |
-| `zod` | ^3 | Config validation |
+| `zod` | ^4 | Config validation |
 | `yaml` | ^2 | YAML parsing |
 | `eventemitter3` | ^5 | Event bus |
 | `nanoid` | ^5 | ID generation |

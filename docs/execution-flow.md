@@ -3,7 +3,7 @@
 ## Full Lifecycle
 
 ```
-1. User provides product spec via CLI (dashboard launch wiring is planned in Phase 4)
+1. User provides product spec via CLI (dashboard reads live API data while orchestration runs)
          |
 2. Orchestrator initializes project directory + git repo
          |
@@ -107,3 +107,10 @@ Engineer fails on task
 | 1 | 2 seconds |
 | 2 | 4 seconds |
 | 3 | 8 seconds |
+
+## Related References
+
+- `docs/agent-roles.md`
+- `docs/interfaces.md`
+- `docs/implementation-plan.md`
+- `docs/NEXT.md`

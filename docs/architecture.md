@@ -7,7 +7,7 @@ Arkaledge is an autonomous AI Scrum team platform where a team of AI agents (Pro
 ## High-Level Architecture
 
 ```
-User --> CLI / Dashboard (prototype) --> Orchestrator --> Agent Pool
+User --> CLI / Dashboard --> Orchestrator --> Agent Pool
                                |
                          Kanban State (JSON)
                                |
@@ -25,7 +25,7 @@ User --> CLI / Dashboard (prototype) --> Orchestrator --> Agent Pool
 | **Kanban State** | JSON file (`kanban.json`) tracking all tasks and their status |
 | **Git Worktrees** | Isolated working directories per engineer for parallel development |
 | **Event Bus** | In-process event emitter for real-time observability |
-| **API Server** | `node:http` server exposing REST (`/api/tasks`) and SSE (`/api/events`) endpoints for dashboard integration |
+| **API Server** | `node:http` server exposing REST (`/api/tasks`), SSE (`/api/events`), and task worktree browsing (`/api/tasks/:taskId/worktree/*path`) |
 | **Web Dashboard** | Vite + React read-only UI wired to live API data via EventSource + REST fetch |
 
 ## SDK Abstraction
@@ -80,3 +80,10 @@ Three-stage pipeline:
 - Agents are sandboxed to their worktree directories
 - No network access beyond what the SDK provides
 - API keys are loaded from environment variables, never committed
+
+## See Also
+
+- `README.md`
+- `docs/onboarding.md`
+- `docs/execution-flow.md`
+- `docs/interfaces.md`

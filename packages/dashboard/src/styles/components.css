@@ -4,7 +4,25 @@
 .panel {
   background: var(--bg-secondary);
   padding: 16px;
-  overflow: hidden;
+  overflow-y: auto;
+}
+
+/* Scrollbar styling */
+.panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 3px;
+}
+
+.panel::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary);
 }
 
 .panel-header {

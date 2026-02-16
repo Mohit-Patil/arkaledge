@@ -7,3 +7,5 @@ dist/
 .next/
 .turbo/
 *.tsbuildinfo
+/tmp
+/test-run

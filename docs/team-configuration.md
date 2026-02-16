@@ -35,10 +35,8 @@ workflow:
   auto_merge: true
 
 plugins:
-  - name: deploy-vercel
-    path: ./plugins/deploy-vercel
-  - name: run-playwright
-    path: ./plugins/run-playwright
+  - name: custom-qa
+    path: ./plugins/custom-qa
 ```
 
 ## Fields
@@ -79,15 +77,19 @@ Plugins extend agent capabilities with custom tools and lifecycle hooks. Each en
 | `name` | Plugin identifier |
 | `path` | Relative path to the plugin directory |
 
+Note: plugin entries are optional. This repository does not currently ship built-in example plugin folders under `./plugins/*`; create your own plugin modules when using this section.
+
 ## Validation
 
 Configs are validated at load time using Zod schemas. Invalid configs produce clear error messages pointing to the problematic field.
 
 ## Default Config
 
-If no config file is provided, a minimal default config is used:
+`defaultConfig()` in `@arkaledge/core` can generate a minimal in-memory config:
 - 1 PM (Claude Opus)
 - 1 Scrum Master (Claude Sonnet)
 - 1 Engineer (Claude Sonnet)
 - Standard workflow settings
 - No plugins
+
+For CLI orchestration mode, pass `--config <path>` explicitly.

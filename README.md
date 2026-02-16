@@ -1,149 +1,129 @@
 # Arkaledge
 
-**Autonomous AI Scrum Team Platform**
+Autonomous AI Scrum team platform for spec-to-code orchestration with Claude and Codex runtimes.
 
-Arkaledge is an autonomous AI Scrum team platform where a team of AI agents (Product Manager, Scrum Master, Engineers) self-organizes to build software products from specifications. Each agent is powered by Claude or Codex SDK via a unified runtime.
+## What Arkaledge Does
 
-## Overview
+Arkaledge coordinates a multi-agent software team:
 
-```
-User --> CLI/Dashboard --> Orchestrator --> Agent Pool
-                              |
-                        Kanban State
-                              |
-                      Git Worktrees (per engineer)
-```
-
-Give Arkaledge a product spec, and it will:
-1. Break down the spec into tasks (Product Manager)
-2. Assign tasks to engineers and coordinate work (Scrum Master)
-3. Implement in isolated git worktrees (Engineers)
-4. Review code and merge to main (Reviewer)
-
-## Quick Start
-
-```bash
-# Build the project
-npm run build
-
-# Run a single agent task
-node packages/cli/dist/index.js run -p "Create a hello world Express app"
-
-# Orchestrate a full team with a spec
-node packages/cli/dist/index.js run --spec <spec.md> --config <config.yaml> --output <dir>
-```
-
-## Architecture
-
-### Components
-
-| Component | Description |
-|-----------|-------------|
-| **Orchestrator** | Main control loop that boots agents, manages lifecycle, and coordinates the Kanban flow |
-| **Agent Pool** | Set of AI agents (PM, SM, Engineers) each running via an AgentRuntime |
-| **Kanban State** | JSON file (`kanban.json`) tracking all tasks and their status |
-| **Git Worktrees** | Isolated working directories per engineer for parallel development |
-| **Event Bus** | In-process event emitter for real-time observability |
-| **CLI** | Command-line interface for running agents and orchestration |
-| **Dashboard (Prototype)** | Vite + React UI prototype (full real-time integration is Phase 4) |
-
-### SDK Abstraction
-
-Two SDK adapters sit behind a unified `AgentRuntime` interface:
-
-- **ClaudeAgentRuntime** - wraps `@anthropic-ai/claude-agent-sdk`
-- **CodexAgentRuntime** - wraps `@openai/codex-sdk`
-
-This allows mixing models and SDKs within the same team.
-
-## Agent Roles
-
-| Role | Responsibility |
-|------|----------------|
-| **Product Manager** | Breaks specs into tasks in kanban.json |
-| **Scrum Master** | Assigns tasks, monitors progress, triggers reviews |
-| **Engineer** | Implements in git worktree, self-corrects on failures |
-| **Reviewer** | Reviews diffs, approves/rejects, merges |
-
-## Task Flow
-
-`backlog` → `in_progress` → `review` → `done`
-
-## Configuration
-
-Teams are configured via YAML files:
-
-```yaml
-team:
-  - role: product-manager
-    sdk: claude
-    model: claude-opus-4-6
-
-  - role: scrum-master
-    sdk: claude
-    model: claude-sonnet-4-5-20250929
-
-  - role: engineer
-    id: eng-1
-    sdk: codex
-    model: o3
-
-  - role: engineer
-    id: eng-2
-    sdk: claude
-    model: claude-sonnet-4-5-20250929
-
-workflow:
-  max_retries: 3
-  review_required: true
-  auto_merge: true
-```
-
-## Project Structure
+1. Product Manager decomposes a spec into backlog tasks.
+2. Scrum Master assigns tasks and drives the workflow.
+3. Engineers implement work in isolated git worktrees.
+4. Reviewer approves/rejects and optionally merges to `main`.
 
 ```
-arkaledge/
-├── packages/
-│   ├── core/           # Orchestrator + agent runtime
-│   │   └── src/
-│   │       ├── orchestrator.ts
-│   │       ├── kanban.ts
-│   │       ├── worktree-manager.ts
-│   │       ├── agents/       # Claude/Codex runtimes
-│   │       └── roles/        # PM, SM, Engineer, Reviewer
-│   ├── dashboard/      # Web UI prototype (Vite + React)
-│   └── cli/            # CLI entry point
-├── docs/               # Architecture documentation
-└── examples/           # Example configurations
+User -> CLI -> Orchestrator -> Agent Pool
+                        |
+                   Kanban State
+                        |
+              Git Worktrees (per task)
 ```
 
-## Development Status
+## Current Status
 
-| Phase | Status |
-|-------|--------|
-| 1-2 (Core) | Complete |
-| 3 (Worktrees + PR flow) | Complete |
-| 4 (Dashboard) | Planned |
-| 5 (Plugins) | Planned |
+- Phase 1-4 are implemented: runtimes, orchestration, worktree flow, dashboard API + UI.
+- Phase 5 (plugin runtime wiring and examples) is next.
+- Short-term next work is tracked in `docs/NEXT.md`.
 
 ## Requirements
 
-- Node.js >= 20
-- npm 10.9.2
+- Node.js `>=20`
+- npm `10.9.2` (declared in `packageManager`)
 - Git
 
-## API Keys
-
-Set environment variables for the SDKs:
+## SDK Environment Variables
 
 ```bash
-# Claude SDK
 export ANTHROPIC_API_KEY="sk-..."
-
-# Codex SDK
 export OPENAI_API_KEY="sk-..."
 ```
 
+## Setup
+
+```bash
+npm install
+npm run build
+```
+
+## Quick Start
+
+### 1. Single-agent run
+
+```bash
+node packages/cli/dist/index.js --prompt "Create a hello world Express app" --sdk claude
+```
+
+### 2. Full team orchestration
+
+```bash
+node packages/cli/dist/index.js \
+  --spec ./spec.md \
+  --config ./examples/team-config.yaml \
+  --output ./output
+```
+
+### 3. Resume an existing orchestration run
+
+```bash
+node packages/cli/dist/index.js \
+  --spec ./spec.md \
+  --config ./examples/team-config.yaml \
+  --output ./output \
+  --resume
+```
+
+Notes:
+- For a fresh run, `--output` must point to an empty directory.
+- `--resume` expects existing state at `<output>/.arkaledge/kanban.json`.
+- CLI flags are passed directly; there is no `run` positional subcommand.
+
+## Dashboard
+
+The CLI starts the API server at `http://localhost:4400` during orchestration.
+
+In a second terminal:
+
+```bash
+cd packages/dashboard
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Root Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run build` | Build all workspaces via Turbo (`turbo build`) |
+| `npm run dev` | Run workspace dev/watch processes (`turbo dev`) |
+| `npm run lint` | Lint all workspaces |
+| `npm run typecheck` | Type-check all workspaces |
+| `npm run install:sdk-peers` | Install SDK peer versions declared in `packages/core/package.json` |
+| `npm run check:sdk-contracts` | Validate expected Codex/Claude SDK runtime + type contracts |
+| `npm run check:sdk` | Run peer install + contract checks together |
+| `npm run prepare` | Install Husky hooks when available |
+
+## Workspace Layout
+
+| Path | Purpose |
+|---|---|
+| `packages/core` | Orchestrator, runtime adapters, kanban, worktree manager, API server |
+| `packages/cli` | CLI entrypoint for single-agent and orchestrated runs |
+| `packages/dashboard` | Live dashboard (Vite + React) |
+| `examples/team-config.yaml` | Example team configuration |
+| `scripts` | SDK peer install and contract check helpers |
+| `docs` | Architecture, interfaces, flow, config, roadmap docs |
+
+## Documentation
+
+- Start here: `docs/README.md`
+- New contributors: `docs/onboarding.md`
+- Architecture: `docs/architecture.md`
+- Execution model: `docs/execution-flow.md`
+- Team config: `docs/team-configuration.md`
+- Project layout: `docs/project-structure.md`
+- Roadmap and current next steps: `docs/implementation-plan.md`, `docs/NEXT.md`
+
 ## License
 
-Private - All rights reserved
+Private - All rights reserved.

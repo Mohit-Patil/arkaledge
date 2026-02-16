@@ -49,7 +49,7 @@ arkaledge/
 |   |   |-- package.json
 |   |-- cli/                      # CLI entry point
 |       |-- src/
-|       |   |-- index.ts          # arkaledge run command
+|       |   |-- index.ts          # CLI options parser + orchestrator launcher
 |       |-- package.json
 |       |-- tsconfig.json
 |-- examples/
@@ -62,16 +62,18 @@ arkaledge/
     |-- implementation-plan.md
     |-- project-structure.md
     |-- execution-flow.md
+    |-- README.md
+    |-- onboarding.md
 ```
 
 ## Package Relationships
 
 ```
 @arkaledge/cli ------> @arkaledge/core
-@arkaledge/dashboard -> @arkaledge/core
+@arkaledge/dashboard -> HTTP API served by @arkaledge/core
 ```
 
 - `@arkaledge/core` is the foundational package with zero internal dependencies
 - `@arkaledge/cli` provides the command-line interface, depends on core
-- `@arkaledge/dashboard` provides a read-only live dashboard, connects to core API server via REST + SSE
-- External SDK packages (`claude-agent-sdk`, `codex-sdk`) are optional peer dependencies, dynamically imported at runtime
+- `@arkaledge/dashboard` provides a read-only live dashboard and talks to the API over HTTP (no direct workspace dependency on `@arkaledge/core`)
+- External SDK packages (`@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`) are optional peer dependencies, dynamically imported at runtime

@@ -43,7 +43,7 @@ Plugin discovery/loading exists, but runtime wiring is still pending.
 - Inject plugin tools into agent runs
 - Trigger plugin lifecycle hooks (`onProjectStart`, `onTaskComplete`, `onProjectComplete`)
 - Add example plugin execution path in end-to-end orchestration
-- Example plugins: deploy-vercel, run-playwright
+- Publish example plugin packages in-repo (currently not included)
 
 ## Verification Targets
 
@@ -54,7 +54,7 @@ npm run lint
 npm run typecheck
 
 # Team orchestration (requires SDK keys)
-node packages/cli/dist/index.js run \
+node packages/cli/dist/index.js \
   --spec ./spec.md \
   --config examples/team-config.yaml \
   --output /tmp/test-project

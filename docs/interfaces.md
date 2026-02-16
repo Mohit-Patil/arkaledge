@@ -49,6 +49,23 @@ interface AgentMessage {
 
 ## Kanban State
 
+### TaskArtifact
+
+```typescript
+type TaskArtifactKind = "worktree" | "ui" | "file";
+
+interface TaskArtifact {
+  kind: TaskArtifactKind;
+  label: string;
+  relativePath: string;
+  url: string;
+  contentType?: string;
+  sizeBytes?: number;
+  createdAt: number;
+  metadata?: Record<string, unknown>;
+}
+```
+
 ### Task
 
 ```typescript
@@ -67,6 +84,9 @@ interface Task {
   history: TaskEvent[];        // audit trail
   createdBy: string;           // agent ID that created it
   reviewComments?: string[];
+  dependsOn?: string[];
+  contextFingerprint?: string;
+  artifacts?: TaskArtifact[];
 }
 ```
 
@@ -114,6 +134,8 @@ interface AgentEvent {
   data?: Record<string, unknown>;
 }
 ```
+
+For `agent:completed`, `data` may include `taskId`, `branch`, `worktree`, `executionReport`, and `artifacts`.
 
 ## Plugin System
 

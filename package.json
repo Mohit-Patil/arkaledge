@@ -18,17 +18,17 @@
     "prepare": "if command -v husky >/dev/null 2>&1; then husky; fi"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-react": "^5.1.4",
-    "eslint": "^9.0.0",
+    "eslint": "^10.0.1",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "turbo": "^2.8.8",
+    "turbo": "^2.8.10",
     "typescript": "^5.7",
     "vite": "^7.3.1"
   },
